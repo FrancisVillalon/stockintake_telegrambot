@@ -55,8 +55,8 @@ class Category(Base):
         return f"<Category(cat_id='{self.cat_id}', cat_name='{self.cat_name}')>"
 
 
-class User(Base):
-    __tablename__ = "user"
+class Usr(Base):
+    __tablename__ = "usr"
     telegram_id = Column(String, primary_key=True)
     telegram_name = Column(String)
     role = Column(String)
