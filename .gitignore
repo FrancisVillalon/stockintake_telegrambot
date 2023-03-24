@@ -2,3 +2,4 @@ venv/*
 database/data/*
 config.toml
 .DS_Store
+db_init.sql

@@ -2,6 +2,7 @@ import asyncio
 import telegram
 import tomllib
 from pprint import pprint
+from database.db_conn import *
 
 with open("./config.toml", "rb") as f:
     data = tomllib.load(f)
@@ -19,3 +20,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    c = db_conn()
+    c.recreate_database()
