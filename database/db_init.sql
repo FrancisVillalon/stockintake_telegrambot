@@ -1,0 +1,3 @@
+CREATE DATABASE stockdb;
+CREATE USER stock_user WITH ENCRYPTED PASSWORD = 'test';
+GRANT SELECT,UPDATE ON DATABASE stockdb TO stock_user;
