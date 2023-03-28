@@ -3,3 +3,5 @@ database/data/*
 config.toml
 .DS_Store
 db_init.sql
+__pycache__/*
+*.py[cod]

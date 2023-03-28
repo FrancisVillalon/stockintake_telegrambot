@@ -29,7 +29,7 @@ class Audit(Base):
     log_id = Column(Integer, primary_key=True)
     log_datetime = Column(DateTime)
     telegram_id = Column(String)
-    telegram_name = Column(String)
+    telegram_username = Column(String)
     item_name = Column(String)
     item_id = Column(String)
     action_quantity = Column(Integer)
@@ -39,7 +39,7 @@ class Audit(Base):
         return (
             f"<Audit(\n"
             f"log_id='{self.log_id}', log_datetime='{self.log_datetime}',\n"
-            f"telegram_id='{self.telegram_id}', telegram_name='{self.telegram_name}',\n"
+            f"telegram_id='{self.telegram_id}', telegram_name='{self.telegram_username}',\n"
             f"item_name='{self.item_name}',item_id='{self.item_id}',\n"
             f"action_quantity='{self.action_quantity}', action_type='{self.action_type}'"
             f")>"
@@ -58,8 +58,8 @@ class Category(Base):
 class Usr(Base):
     __tablename__ = "usr"
     telegram_id = Column(String, primary_key=True)
-    telegram_name = Column(String)
+    telegram_username = Column(String)
     role = Column(String)
 
     def __repr__(self):
-        return f"<User(telegram_id='{self.telegram_id}', telegram_name='{self.telegram_name}, role='{self.role}')>"
+        return f"<User(telegram_id='{self.telegram_id}', telegram_username='{self.telegram_username}, role='{self.role}')>"

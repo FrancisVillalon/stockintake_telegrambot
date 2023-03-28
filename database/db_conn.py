@@ -25,7 +25,7 @@ class db_conn:
         return
 
     def create_session(self):
-        return Session(self.DB_ENGINE)
+        return Session(bind=self.DB_ENGINE)
 
     def commit_kill(self, s):
         s.commit()
