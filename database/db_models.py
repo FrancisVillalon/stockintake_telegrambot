@@ -34,6 +34,7 @@ class Audit(Base):
     item_id = Column(String)
     action_quantity = Column(Integer)
     action_type = Column(String)
+    action_remarks = Column(String)
 
     def __repr__(self):
         return (
@@ -63,3 +64,12 @@ class Usr(Base):
 
     def __repr__(self):
         return f"<User(telegram_id='{self.telegram_id}', telegram_username='{self.telegram_username}, role='{self.role}')>"
+
+
+class Applicant(Base):
+    __tablename__ = "applicant"
+    telegram_id = Column(String, primary_key=True)
+    telegram_username = Column(String)
+
+    def __repr__(self):
+        return f"<Applicant(telegram_id='{self.telegram_id}', telegram_username='{self.telegram_username}')>"
