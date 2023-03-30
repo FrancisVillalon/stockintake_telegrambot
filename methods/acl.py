@@ -11,48 +11,40 @@ with open("./config.toml", "rb") as f:
 db = db_conn()
 
 
-def register_user(telegram_id, telegram_username, role):
-    s = db.create_session()
-    usr = Usr(
-        telegram_id=telegram_id,
-        telegram_username=telegram_username,
-        role=role,
-    )
-    try:
-        s.add(usr)
-    except sqlalchemy.exc.IntegrityError:
-        print("User already exists")
-    db.commit_kill(s)
-    return
-
-
 def register_applicant(telegram_id, telegram_username):
+    if telegram_username is None:
+        return -2
     s = db.create_session()
-    if s.query(Usr.telegram_id).filter(telegram_id == telegram_id).first() is not None:
-        db.commit_kill(s)
-        return 0
-    elif (
-        s.query(Applicant.telegram_id).filter(telegram_id == telegram_id).first()
-        is not None
-    ):
-        db.commit_kill(s)
+    user_lookup = (
+        s.query(Usr.telegram_id).filter(Usr.telegram_id == f"{telegram_id}").first()
+    ) is not None
+    applicant_lookup = (
+        s.query(Applicant.telegram_id)
+        .filter(Applicant.telegram_id == f"{telegram_id}")
+        .first()
+    ) is not None
+    if applicant_lookup:
         return -1
+    elif user_lookup:
+        return 0
     else:
         try:
             applicant = Applicant(
                 telegram_id=telegram_id, telegram_username=telegram_username
             )
             s.add(applicant)
-        except sqlalchemy.exc.IntegrityError:
-            print("User already exists")
-        db.commit_kill(s)
-        return 1
+            db.commit_kill(s)
+            return 1
+        except Exception as e:
+            print(e)
+            return -3
 
 
 def verify_user(telegram_id):
     s = db.create_session()
     usr_bool = (
-        s.query(Usr.telegram_id).filter(telegram_id == telegram_id).first() is not None
+        s.query(Usr.telegram_id).filter(telegram_id == f"{telegram_id}").first()
+        is not None
     )
     db.commit_kill(s)
     return usr_bool
