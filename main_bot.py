@@ -120,17 +120,20 @@ async def user_received_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = db_conn()
     s = db_conn().create_session()
-    add_admin_role = Usr(
-        telegram_id=update.effective_chat.id,
-        telegram_username=update.effective_chat.username,
-        role="admin",
-    )
-    s.add(add_admin_role)
-    find_app = s.query(Applicant).filter(
-        Applicant.telegram_username == f"{update.effective_chat.username}"
-    )
-    find_app.delete()
-    db.commit_kill(s)
+    try:
+        add_admin_role = Usr(
+            telegram_id=update.effective_chat.id,
+            telegram_username=update.effective_chat.username,
+            role="admin",
+        )
+        s.add(add_admin_role)
+        find_app = s.query(Applicant).filter(
+            Applicant.telegram_username == f"{update.effective_chat.username}"
+        )
+        find_app.delete()
+        db.commit_kill(s)
+    except Exception as e:
+        print(e)
     await update.effective_chat.send_message("Registered as Admin. Remove this later.")
 
 
