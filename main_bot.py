@@ -2,7 +2,7 @@ import asyncio
 import tomllib
 import logging
 from pprint import pprint
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -12,7 +12,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     MessageHandler,
 )
-from methods.acl import *
+from methods.acl_methods import *
+from methods.rkey_methods import *
 from database.db_models import *
 
 # METHODS AND VARS
@@ -24,22 +25,10 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-CHOOSING, TYPING_REPLY = range(2)
-keyboard = [["Register"]]
-reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+AWAITING_REPLY, RECEIVED_REPLY = range(2)
+# LOAN_CATEGORY, LOAN_ITEM, LOAN_AMOUNT = range(3)
 
 
-def show_keyboard(telegram_id):
-    if verify_admin(telegram_id):
-        keyboard = [
-            [InlineKeyboardButton("Register", callback_data="register_callback")]
-        ]
-
-    elif verify_user(telegram_id):
-        keyboard = [[InlineKeyboardButton("Loan", callback_data="loan_callback")]]
-
-
-#! ASYNC
 async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not verify_admin(update.effective_chat.id):
         await update.effective_chat.send_message(
@@ -71,11 +60,15 @@ async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     match register_applicant(update.effective_chat.id, update.effective_chat.username):
         case 0:
+            usr_role = get_user_role(update.effective_chat.id)
+            if usr_role:
+                context.user_data["role"] = usr_role
+                reply_markup = show_keyboard(update.effective_chat.id, usr_role)
             await update.effective_chat.send_message(
                 f"Welcome back {update.effective_chat.username}! What would you like to do today?",
                 reply_markup=reply_markup,
             )
-            return CHOOSING
+            return AWAITING_REPLY
         case 1:
             await update.effective_chat.send_message(
                 f"""
@@ -97,23 +90,51 @@ You have been registered as an applicant and your application is awaiting approv
             )
 
 
-async def user_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# Conversation bot methods
+
+
+async def loan_item(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     context.user_data["choice"] = text
-    await update.message.reply_text(f"Action selected: {text}")
-    return TYPING_REPLY
+    await update.message.reply_text(f"You have chosen to loan an item.")
+    return RECEIVED_REPLY
+
+
+async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if context.user_data["role"] != "admin":
+        await update.message.reply_text(f"You are not authorized.")
+        return AWAITING_REPLY
+    text = update.message.text
+    context.user_data["choice"] = text
+    await update.message.reply_text(f"Who do you want to register?")
+    return RECEIVED_REPLY
 
 
 async def user_received_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    reply_markup = show_keyboard(update.effective_chat.id, context.user_data["role"])
     user_data = context.user_data
-    text = update.message.text
-    category = user_data["choice"]
-    user_data[category] = text
+    chosen_action = user_data["choice"]
+    if chosen_action.lower() == "register":
+        applicant = update.message.text
+        match verify_applicant(applicant):
+            case 1:
+                await update.effective_chat.send_message(
+                    f"Successfully reigstered {applicant} as a user.",
+                    reply_markup=reply_markup,
+                )
+            case 0:
+                await update.effective_chat.send_message(
+                    f"This user is already verified.", reply_markup=reply_markup
+                )
+            case -1:
+                await update.effective_chat.send_message(
+                    f"We cannot find an applicant with username {applicant}.",
+                    reply_markup=reply_markup,
+                )
+    if chosen_action.lower() == "loan":
+        await update.effective_chat.sened_message(f"You have completed a loan action")
     del user_data["choice"]
-    await update.message.reply_text(
-        f"Action: {category}, Reply: {text}", reply_markup=reply_markup
-    )
-    return CHOOSING
+    return AWAITING_REPLY
 
 
 # PURELY FOR TESTING
@@ -134,7 +155,11 @@ async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.commit_kill(s)
     except Exception as e:
         print(e)
-    await update.effective_chat.send_message("Registered as Admin. Remove this later.")
+    await update.effective_chat.send_message(
+        "Registered as Admin. Remove this later.",
+        reply_markup=show_keyboard(update.effective_chat.id, "admin"),
+    )
+    return RECEIVED_REPLY
 
 
 def main() -> "Start Bot":
@@ -143,13 +168,17 @@ def main() -> "Start Bot":
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            CHOOSING: [
+            AWAITING_REPLY: [
                 MessageHandler(
                     filters.TEXT & filters.Regex("^Register$") & ~(filters.COMMAND),
-                    user_choice,
-                )
+                    register_user,
+                ),
+                MessageHandler(
+                    filters.TEXT & filters.Regex("^Loan$") & ~(filters.COMMAND),
+                    loan_item,
+                ),
             ],
-            TYPING_REPLY: [
+            RECEIVED_REPLY: [
                 MessageHandler(
                     filters.TEXT & ~(filters.COMMAND),
                     user_received_info,

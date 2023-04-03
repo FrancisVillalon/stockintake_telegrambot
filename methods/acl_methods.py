@@ -8,7 +8,20 @@ with open("./config.toml", "rb") as f:
     data = tomllib.load(f)
     bot_link = data["telegram_bot"]["bot_link"]
 
-db = db_conn()
+
+def register_user(telegram_id, telegram_username, role):
+    s = db.create_session()
+    usr = Usr(
+        telegram_id=telegram_id,
+        telegram_username=telegram_username,
+        role=role,
+    )
+    try:
+        s.add(usr)
+    except sqlalchemy.exc.IntegrityError:
+        print("User already exists")
+    db.commit_kill(s)
+    return
 
 
 def register_applicant(telegram_id, telegram_username):
@@ -40,13 +53,23 @@ def register_applicant(telegram_id, telegram_username):
             return -3
 
 
+def get_user_role(telegram_id):
+    s = db.create_session()
+    query_str = s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}")
+    usr_exists = query_str.first() is not None
+    if usr_exists:
+        return query_str.first().role
+    else:
+        return None
+
+
 def verify_user(telegram_id):
     s = db.create_session()
     usr_bool = (
-        s.query(Usr.telegram_id).filter(telegram_id == f"{telegram_id}").first()
-        is not None
+        s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}").first() is not None
     )
     db.commit_kill(s)
+    print(usr_bool)
     return usr_bool
 
 

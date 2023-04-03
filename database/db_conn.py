@@ -39,3 +39,6 @@ class db_conn:
     def kill_all_sessions(self):
         close_all_sessions()
         return
+
+
+db = db_conn()
