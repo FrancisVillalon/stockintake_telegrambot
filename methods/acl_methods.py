@@ -53,16 +53,6 @@ def register_applicant(telegram_id, telegram_username):
             return -3
 
 
-def get_user_role(telegram_id):
-    s = db.create_session()
-    query_str = s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}")
-    usr_exists = query_str.first() is not None
-    if usr_exists:
-        return query_str.first().role
-    else:
-        return None
-
-
 def verify_user(telegram_id):
     s = db.create_session()
     usr_bool = (
@@ -103,3 +93,29 @@ def verify_applicant(telegram_username):
     else:
         db.commit_kill(s)
         return -1
+
+
+def get_user_role(telegram_id):
+    s = db.create_session()
+    query_str = s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}")
+    usr_exists = query_str.first() is not None
+    if usr_exists:
+        r = query_str.first().role
+        db.commit_kill(s)
+        return r
+    else:
+        db.commit_kill(s)
+        return None
+
+
+def get_user_id(telegram_username):
+    s = db.create_session()
+    query_str = s.query(Usr).filter(Usr.telegram_username == f"{telegram_username}")
+    usr_exists = query_str.first() is not None
+    if usr_exists:
+        r = query_str.first().telegram_id
+        db.commit_kill(s)
+        return r
+    else:
+        db.commit_kill(s)
+        return None

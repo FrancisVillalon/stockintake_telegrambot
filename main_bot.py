@@ -96,7 +96,7 @@ You have been registered as an applicant and your application is awaiting approv
 async def loan_item(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     context.user_data["choice"] = text
-    await update.message.reply_text(f"You have chosen to loan an item.")
+    await update.message.reply_text(f"Category?")
     return RECEIVED_REPLY
 
 
@@ -118,9 +118,14 @@ async def user_received_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
         applicant = update.message.text
         match verify_applicant(applicant):
             case 1:
+                user_chatid = get_user_id(applicant)
                 await update.effective_chat.send_message(
                     f"Successfully reigstered {applicant} as a user.",
                     reply_markup=reply_markup,
+                )
+                await context.bot.send_message(
+                    chat_id=user_chatid,
+                    text=f"Your application has been approved by an admin! Reply with /start to being using the bot!",
                 )
             case 0:
                 await update.effective_chat.send_message(
@@ -132,7 +137,9 @@ async def user_received_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     reply_markup=reply_markup,
                 )
     if chosen_action.lower() == "loan":
-        await update.effective_chat.sened_message(f"You have completed a loan action")
+        await update.effective_chat.send_message(
+            f"You have completed a loan action", reply_markup=reply_markup
+        )
     del user_data["choice"]
     return AWAITING_REPLY
 
@@ -155,18 +162,22 @@ async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.commit_kill(s)
     except Exception as e:
         print(e)
+    context.user_data["role"] = "admin"
     await update.effective_chat.send_message(
         "Registered as Admin. Remove this later.",
         reply_markup=show_keyboard(update.effective_chat.id, "admin"),
     )
-    return RECEIVED_REPLY
+    return AWAITING_REPLY
 
 
 def main() -> "Start Bot":
     application = ApplicationBuilder().token(tele_key).build()
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[
+            CommandHandler("start", start),
+            CommandHandler("initadmin", initadmin),
+        ],
         states={
             AWAITING_REPLY: [
                 MessageHandler(
