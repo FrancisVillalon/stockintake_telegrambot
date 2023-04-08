@@ -85,18 +85,20 @@ async def loan_end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(
             f"Please select a category", reply_markup=show_keyboard(k2)
         )
+        return LOAN_STATE
     elif not context.user_data["item_name_selected"]:
         item_cat = context.user_data["item_cat_selected"]
         await update.message.reply_text(
             f"Please select an item", reply_markup=show_keyboard(ck_dict[item_cat])
         )
+        return LOAN_STATE
     else:
         item_quantity = update.message.text
         context.user_data["item_quantity_selected"] = item_quantity
         await update.message.reply_text(
             f"Are you sure?", reply_markup=show_keyboard(ca_k)
         )
-    return END_STATE
+        return END_STATE
 
 
 # REGISTER STATE
@@ -143,7 +145,10 @@ def main() -> None:
                     & ~(filters.COMMAND),
                     item_cat_selected,
                 ),
-                MessageHandler(filters.TEXT & ~(filters.COMMAND), item_name_selected),
+                MessageHandler(
+                    filters.TEXT & ~(filters.Regex("^\d+")) & ~(filters.COMMAND),
+                    item_name_selected,
+                ),
                 MessageHandler(filters.Regex("^\d+$") & ~(filters.COMMAND), loan_end),
             ],
             END_STATE: [
@@ -157,8 +162,9 @@ def main() -> None:
         },
         fallbacks=[CommandHandler("start", start)],
     )
-    application.add_handler(CommandHandler("start", start))
     application.add_handler(conv_handler)
+
+    application.add_handler(CommandHandler("start", start))
     application.run_polling()
 
 

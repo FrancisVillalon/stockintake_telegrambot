@@ -119,14 +119,15 @@ async def user_received_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
         match verify_applicant(applicant):
             case 1:
                 user_chatid = get_user_id(applicant)
+                await context.bot.send_message(
+                    chat_id=user_chatid,
+                    text=f"Your application has been approved by an admin! Reply with /start to begin using the bot!",
+                )
                 await update.effective_chat.send_message(
                     f"Successfully reigstered {applicant} as a user.",
                     reply_markup=reply_markup,
                 )
-                await context.bot.send_message(
-                    chat_id=user_chatid,
-                    text=f"Your application has been approved by an admin! Reply with /start to being using the bot!",
-                )
+
             case 0:
                 await update.effective_chat.send_message(
                     f"This user is already verified.", reply_markup=reply_markup
