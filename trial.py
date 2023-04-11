@@ -25,7 +25,7 @@ k2 = [["Cat1", "Cat2", "Cat3"]]
 c1_k = [["Item1", "Item2"]]
 c2_k = [["Item3"]]
 c3_k = [["Item5", "Item6", "Item7"]]
-ca_k = [["Confirm", "Cancel"]]
+ca_k = [["confirm", "cancel"]]
 ck_dict = {
     "Cat1": c1_k,
     "Cat2": c2_k,
@@ -44,7 +44,7 @@ def show_keyboard(k):
 # START
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
-        "This is a test conversation bot.", reply_markup=show_keyboard(k1)
+        "Trial test for capturing loan data.", reply_markup=show_keyboard(k1)
     )
     return START_STATE
 
@@ -115,7 +115,7 @@ async def start_over(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         item_cat = user_data["item_cat_selected"]
         item_name = user_data["item_name_selected"]
         item_quantity = user_data["item_quantity_selected"]
-        del user_data
+        user_data.clear()
         await update.message.reply_text(
             f"LOAN(Item Category:{item_cat}, Item Name:{item_name}, Item Quantity:{item_quantity})",
             reply_markup=show_keyboard(k1),

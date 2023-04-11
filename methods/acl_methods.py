@@ -8,9 +8,11 @@ with open("./config.toml", "rb") as f:
     data = tomllib.load(f)
     bot_link = data["telegram_bot"]["bot_link"]
 
+c = db.get_connection()
+
 
 def register_user(telegram_id, telegram_username, role):
-    s = db.create_session()
+    s = db.create_session(c)
     usr = Usr(
         telegram_id=telegram_id,
         telegram_username=telegram_username,
@@ -27,7 +29,7 @@ def register_user(telegram_id, telegram_username, role):
 def register_applicant(telegram_id, telegram_username):
     if telegram_username is None:
         return -2
-    s = db.create_session()
+    s = db.create_session(c)
     user_lookup = (
         s.query(Usr.telegram_id).filter(Usr.telegram_id == f"{telegram_id}").first()
     ) is not None
@@ -54,7 +56,7 @@ def register_applicant(telegram_id, telegram_username):
 
 
 def verify_user(telegram_id):
-    s = db.create_session()
+    s = db.create_session(c)
     usr_bool = (
         s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}").first() is not None
     )
@@ -64,7 +66,7 @@ def verify_user(telegram_id):
 
 
 def verify_admin(telegram_id):
-    s = db.create_session()
+    s = db.create_session(c)
     admin_bool = (
         s.query(Usr.telegram_id, Usr.role)
         .filter((Usr.telegram_id == f"{telegram_id}") & (Usr.role == "admin"))
@@ -75,7 +77,7 @@ def verify_admin(telegram_id):
 
 
 def verify_applicant(telegram_username):
-    s = db.create_session()
+    s = db.create_session(c)
     find_user_query = s.query(Applicant).filter(
         telegram_username == f"{telegram_username}"
     )
@@ -96,7 +98,7 @@ def verify_applicant(telegram_username):
 
 
 def get_user_role(telegram_id):
-    s = db.create_session()
+    s = db.create_session(c)
     query_str = s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}")
     usr_exists = query_str.first() is not None
     if usr_exists:
@@ -109,9 +111,10 @@ def get_user_role(telegram_id):
 
 
 def get_user_id(telegram_username):
-    s = db.create_session()
+    s = db.create_session(c)
     query_str = s.query(Usr).filter(Usr.telegram_username == f"{telegram_username}")
     usr_exists = query_str.first() is not None
+    print(usr_exists)
     if usr_exists:
         r = query_str.first().telegram_id
         db.commit_kill(s)

@@ -17,23 +17,28 @@ with open("./config.toml", "rb") as f:
 class db_conn:
     def __init__(self):
         self.DB_STRING = f"postgresql://{db_user}:{db_secret}@127.0.0.1:5432/{db_name}"
-        self.DB_ENGINE = create_engine(self.DB_STRING)
 
-    def recreate_database(self):
-        Base.metadata.drop_all(self.DB_ENGINE)
-        Base.metadata.create_all(self.DB_ENGINE)
+    def get_connection(self):
+        global _engine
+        if not _engine:
+            _engine = create_engine(self.DB_STRING)
+        return _engine
+
+    def recreate_database(self, c):
+        Base.metadata.drop_all(c)
+        Base.metadata.create_all(c)
         return
 
-    def create_session(self):
-        return Session(bind=self.DB_ENGINE)
+    def create_session(self, c):
+        return Session(bind=c)
 
     def commit_kill(self, s):
         s.commit()
         s.close()
         return
 
-    def kill_conn(self, conn):
-        conn.close()
+    def kill_conn(self, c):
+        c.close()
         return
 
     def kill_all_sessions(self):
@@ -41,4 +46,5 @@ class db_conn:
         return
 
 
+_engine = None
 db = db_conn()

@@ -1,10 +1,9 @@
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from database.db_conn import *
+from methods.data_methods import *
 
-s = db.create_session()
 
-
-def show_keyboard(telegram_id, role):
+def show_keyboard_start(telegram_id, role):
     if role == "admin":
         keyboard = [["Register", "Loan"]]
         return ReplyKeyboardMarkup(
@@ -18,18 +17,10 @@ def show_keyboard(telegram_id, role):
 
 
 def show_keyboard_cat():
-    keyboard = [[cat_name for (cat_name,) in s.query(Category.cat_name).all()]]
+    keyboard = [get_cat_list()]
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
 
 def show_keyboard_items(cat_name):
-    cat_id = int(
-        s.query(Category).filter(Category.cat_name == str(cat_name)).first().cat_id
-    )
-    keyboard = [
-        item_name
-        for (item_name, cat_id) in s.query(Stock.item_name, Stock.cat_id)
-        .filter(Stock.cat_id == int(cat_id))
-        .all()
-    ]
+    keyboard = [get_item_list(cat_name)]
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)

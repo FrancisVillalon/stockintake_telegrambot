@@ -14,19 +14,20 @@ from telegram.ext import (
 )
 from methods.acl_methods import *
 from methods.rkey_methods import *
+from methods.data_methods import *
 from database.db_models import *
 
 # METHODS AND VARS
 with open("./config.toml", "rb") as f:
     data = tomllib.load(f)
     tele_key = data["telegram_bot"]["api_key"]
-
+# Basic logger to see debug errors
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-AWAITING_REPLY, RECEIVED_REPLY = range(2)
-# LOAN_CATEGORY, LOAN_ITEM, LOAN_AMOUNT = range(3)
+# Menu states
+AWAITING_REPLY, RECEIVED_REPLY, LOAN_STATE = range(3)
 
 
 async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,47 +58,47 @@ async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
 
+# Bot start point
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     match register_applicant(update.effective_chat.id, update.effective_chat.username):
-        case 0:
+        case 0:  # Registered user starting point
             usr_role = get_user_role(update.effective_chat.id)
             if usr_role:
                 context.user_data["role"] = usr_role
-                reply_markup = show_keyboard(update.effective_chat.id, usr_role)
+                reply_markup = show_keyboard_start(update.effective_chat.id, usr_role)
             await update.effective_chat.send_message(
                 f"Welcome back {update.effective_chat.username}! What would you like to do today?",
                 reply_markup=reply_markup,
             )
             return AWAITING_REPLY
-        case 1:
+        case 1:  # Unregistered user starting point -> Apply for registration
             await update.effective_chat.send_message(
                 f"""
 Hello {update.effective_chat.username}! Welcome to Stock Intake Bot (Prototype)!
 You have been registered as an applicant and your application is awaiting approval from admins.
 """
             )
-        case -1:
+        case -1:  # Unregistered user that has already applied -> Inform user that application is placed and awaits approval
             await update.effective_chat.send_message(
                 f"Hello {update.effective_chat.username}! Your application is still awaiting approval!"
             )
-        case -2:
+        case -2:  # Unregistered user does not have a telegram username -> Deny application
             await update.effective_chat.send_message(
                 f"You are required to set a telegram username before being able to use this bot."
             )
-        case -3:
+        case -3:  # Failsafe for catching unexpected errors
             await update.effective_chat.send_message(
                 f"Unexpected error occured. Please try again later."
             )
 
 
-# Conversation bot methods
-
-
-async def loan_item(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# action methods
+async def loan_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     context.user_data["choice"] = text
-    await update.message.reply_text(f"Category?")
-    return RECEIVED_REPLY
+    context.user_data["orders"] = {}
+    await update.message.reply_text(f"What is the category of the item?")
+    return LOAN_STATE
 
 
 async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -110,8 +111,13 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return RECEIVED_REPLY
 
 
-async def user_received_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    reply_markup = show_keyboard(update.effective_chat.id, context.user_data["role"])
+# Terminus
+async def user_received_info(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> "Terminus":
+    reply_markup = show_keyboard_start(
+        update.effective_chat.id, context.user_data["role"]
+    )
     user_data = context.user_data
     chosen_action = user_data["choice"]
     if chosen_action.lower() == "register":
@@ -145,10 +151,9 @@ async def user_received_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return AWAITING_REPLY
 
 
-# PURELY FOR TESTING
+# PURELY FOR TESTING, DELETE LATER AFTER TESTING
 async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    db = db_conn()
-    s = db_conn().create_session()
+    s = db.create_session(db.get_connection())
     try:
         add_admin_role = Usr(
             telegram_id=update.effective_chat.id,
@@ -166,11 +171,12 @@ async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["role"] = "admin"
     await update.effective_chat.send_message(
         "Registered as Admin. Remove this later.",
-        reply_markup=show_keyboard(update.effective_chat.id, "admin"),
+        reply_markup=show_keyboard_start(update.effective_chat.id, "admin"),
     )
     return AWAITING_REPLY
 
 
+# Main bot function
 def main() -> "Start Bot":
     application = ApplicationBuilder().token(tele_key).build()
 
@@ -187,7 +193,7 @@ def main() -> "Start Bot":
                 ),
                 MessageHandler(
                     filters.TEXT & filters.Regex("^Loan$") & ~(filters.COMMAND),
-                    loan_item,
+                    loan_start,
                 ),
             ],
             RECEIVED_REPLY: [
@@ -196,6 +202,11 @@ def main() -> "Start Bot":
                     user_received_info,
                 )
             ],
+            # LOAN_STATE: [
+            #     MessageHandler(filters.TEXT),
+            #     MessageHandler(),
+            #     MessageHandler(),
+            # ],
         },
         fallbacks=[CommandHandler("start", start)],
     )
@@ -206,6 +217,17 @@ def main() -> "Start Bot":
     application.run_polling()
 
 
+# Run
 if __name__ == "__main__":
-    db_conn().recreate_database()
+
+    # Loading in initial data for database
+    db.recreate_database(c)
+    DATADIR = "./database/data/spreadsheets/"
+    load_in_db(os.path.join(DATADIR, "data_stock.xlsx"), c, "stock")
+    load_in_db(os.path.join(DATADIR, "data_categories.xlsx"), c, "category")
+
     main()
+    print(get_cat_list())
+    print(get_item_list("cat1"))
+    db.kill_all_sessions()
+    c.dispose()
