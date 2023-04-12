@@ -79,7 +79,7 @@ def verify_admin(telegram_id):
 def verify_applicant(telegram_username):
     s = db.create_session(c)
     find_user_query = s.query(Applicant).filter(
-        telegram_username == f"{telegram_username}"
+        Applicant.telegram_username == f"{telegram_username}"
     )
     find_user = find_user_query.first()
     if find_user:
@@ -114,7 +114,6 @@ def get_user_id(telegram_username):
     s = db.create_session(c)
     query_str = s.query(Usr).filter(Usr.telegram_username == f"{telegram_username}")
     usr_exists = query_str.first() is not None
-    print(usr_exists)
     if usr_exists:
         r = query_str.first().telegram_id
         db.commit_kill(s)

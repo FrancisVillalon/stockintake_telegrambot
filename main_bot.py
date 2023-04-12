@@ -15,7 +15,9 @@ from telegram.ext import (
 from methods.acl_methods import *
 from methods.rkey_methods import *
 from methods.data_methods import *
+from methods.filter_methods import *
 from database.db_models import *
+import uuid
 
 # METHODS AND VARS
 with open("./config.toml", "rb") as f:
@@ -27,7 +29,7 @@ logging.basicConfig(
 )
 
 # Menu states
-AWAITING_REPLY, RECEIVED_REPLY, LOAN_STATE = range(3)
+ACTION_START, LOAN_STATE, REG_STATE = range(3)
 
 
 async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -70,7 +72,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Welcome back {update.effective_chat.username}! What would you like to do today?",
                 reply_markup=reply_markup,
             )
-            return AWAITING_REPLY
+            return ACTION_START
         case 1:  # Unregistered user starting point -> Apply for registration
             await update.effective_chat.send_message(
                 f"""
@@ -92,43 +94,141 @@ You have been registered as an applicant and your application is awaiting approv
             )
 
 
-# action methods
+# ACTION_START
 async def loan_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     context.user_data["choice"] = text
     context.user_data["orders"] = {}
-    await update.message.reply_text(f"What is the category of the item?")
+    context.user_data["temp_order"] = {"order_id": str(uuid.uuid4())}
+    await update.message.reply_text(
+        f"What is the category of the item?", reply_markup=show_keyboard_cat()
+    )
     return LOAN_STATE
 
 
-async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if context.user_data["role"] != "admin":
-        await update.message.reply_text(f"You are not authorized.")
-        return AWAITING_REPLY
+        await update.message.reply_text(
+            f"You are not authorized.",
+            reply_markup=show_keyboard_start(
+                update.effective_chat.id, context.user_data["role"]
+            ),
+        )
+        return ACTION_START
     text = update.message.text
     context.user_data["choice"] = text
     await update.message.reply_text(f"Who do you want to register?")
-    return RECEIVED_REPLY
+    return REG_STATE
 
 
-# Terminus
-async def user_received_info(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> "Terminus":
+# LOAN_STATE
+
+
+async def loan_item_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    cat_name = update.message.text
+    temp_order = dict(context.user_data["temp_order"])
+    temp_order["cat_name"] = cat_name
+    context.user_data["temp_order"] = temp_order
+    print(temp_order)
+    await update.message.reply_text(
+        f"What item in {cat_name}?", reply_markup=show_keyboard_items(cat_name)
+    ),
+    return LOAN_STATE
+
+
+async def loan_quant_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    item_selected = update.message.text
+    temp_order = dict(context.user_data["temp_order"])
+    temp_order["item_name"] = item_selected
+    context.user_data["temp_order"] = temp_order
+    print(temp_order)
+    await update.message.reply_text(
+        f"How many of '{item_selected}' do you want to loan out?"
+    )
+    return LOAN_STATE
+
+
+async def loan_order_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    quant_selected = update.message.text
+    temp_order = dict(context.user_data["temp_order"])
+    temp_order["item_quantity"] = int(quant_selected)
+    await update.message.reply_text(
+        f"""
+Your current loan request is as follows:\n\n
+Item Category: {temp_order["cat_name"]}\n
+Item Name: {temp_order["item_name"]}\n
+Ordered Quantity: {temp_order["item_quantity"]}\n\n
+Is this all you would like to request?
+""",
+        reply_markup=show_keyboard_conf_loan(),
+    )
+    return LOAN_STATE
+
+
+async def loan_conf_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     reply_markup = show_keyboard_start(
         update.effective_chat.id, context.user_data["role"]
     )
-    user_data = context.user_data
-    chosen_action = user_data["choice"]
-    if chosen_action.lower() == "register":
-        applicant = update.message.text
+    loan_conf_reply = update.message.text
+    if loan_conf_reply.lower() == "confirm":
+        pass
+    elif loan_conf_reply.lower() == "cancel":
+        pass
+    elif loan_conf_reply.lower() == "request another item":
+        pass
+    await update.message.reply("Completed loan test route.", reply_markup=reply_markup)
+    return ACTION_START
+
+
+# REG STATE
+async def register_conf_prompt(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    if "applicant_name_chosen" not in context.user_data.keys():
+        context.user_data["applicant_name_chosen"] = update.message.text
+    applicant_name = context.user_data["applicant_name_chosen"]
+    await update.message.reply_text(
+        f"You want to register applicant '{applicant_name}' ?",
+        reply_markup=show_keyboard_conf(),
+    )
+    return REG_STATE
+
+
+async def register_conf_reply(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    conf_reply = update.message.text
+    if "applicant_name_chosen" not in context.user_data.keys():
+        await update.message.reply_text(
+            f"You have no selected an applicant to register yet. Please tell me who to register."
+        )
+        return REG_STATE
+    if conf_reply.lower() == "cancel":
+        # Clean up user data for next request
+        context.user_data.clear()
+        context.user_data["role"] = get_user_role(update.effective_chat.id)
+        await update.message.reply_text(
+            f"You cancelled the registration.",
+            reply_markup=show_keyboard_start(
+                update.effective_chat.id, context.user_data["role"]
+            ),
+        )
+    elif conf_reply.lower() == "confirm":
+        reply_markup = show_keyboard_start(
+            update.effective_chat.id, context.user_data["role"]
+        )
+        applicant = context.user_data["applicant_name_chosen"]
+        # Clean up user data for next request
+        context.user_data.clear()
+        context.user_data["role"] = get_user_role(update.effective_chat.id)
         match verify_applicant(applicant):
             case 1:
                 user_chatid = get_user_id(applicant)
-                await context.bot.send_message(
-                    chat_id=user_chatid,
-                    text=f"Your application has been approved by an admin! Reply with /start to begin using the bot!",
-                )
+                if user_chatid:
+                    await context.bot.send_message(
+                        chat_id=user_chatid,
+                        text=f"Your application has been approved by an admin! Reply with /start to begin using the bot!",
+                    )
                 await update.effective_chat.send_message(
                     f"Successfully reigstered {applicant} as a user.",
                     reply_markup=reply_markup,
@@ -140,15 +240,10 @@ async def user_received_info(
                 )
             case -1:
                 await update.effective_chat.send_message(
-                    f"We cannot find an applicant with username {applicant}.",
+                    f"We cannot find an applicant with username '{applicant}'.",
                     reply_markup=reply_markup,
                 )
-    if chosen_action.lower() == "loan":
-        await update.effective_chat.send_message(
-            f"You have completed a loan action", reply_markup=reply_markup
-        )
-    del user_data["choice"]
-    return AWAITING_REPLY
+    return ACTION_START
 
 
 # PURELY FOR TESTING, DELETE LATER AFTER TESTING
@@ -173,7 +268,7 @@ async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Registered as Admin. Remove this later.",
         reply_markup=show_keyboard_start(update.effective_chat.id, "admin"),
     )
-    return AWAITING_REPLY
+    return ACTION_START
 
 
 # Main bot function
@@ -186,27 +281,52 @@ def main() -> "Start Bot":
             CommandHandler("initadmin", initadmin),
         ],
         states={
-            AWAITING_REPLY: [
+            ACTION_START: [
                 MessageHandler(
                     filters.TEXT & filters.Regex("^Register$") & ~(filters.COMMAND),
-                    register_user,
+                    register_start,
                 ),
                 MessageHandler(
                     filters.TEXT & filters.Regex("^Loan$") & ~(filters.COMMAND),
                     loan_start,
                 ),
             ],
-            RECEIVED_REPLY: [
+            REG_STATE: [
                 MessageHandler(
-                    filters.TEXT & ~(filters.COMMAND),
-                    user_received_info,
-                )
+                    filters.TEXT
+                    & ~(filters.COMMAND)
+                    & ~(filters.Regex("^Confirm|Cancel$")),
+                    register_conf_prompt,
+                ),
+                MessageHandler(
+                    filters.TEXT
+                    & ~(filters.COMMAND)
+                    & filters.Regex("^Confirm|Cancel$"),
+                    register_conf_reply,
+                ),
             ],
-            # LOAN_STATE: [
-            #     MessageHandler(filters.TEXT),
-            #     MessageHandler(),
-            #     MessageHandler(),
-            # ],
+            LOAN_STATE: [
+                MessageHandler(
+                    filter_category_only & ~(filters.COMMAND) & filters.TEXT,
+                    loan_item_select,
+                ),
+                MessageHandler(
+                    filters.TEXT
+                    & ~(filters.Regex("^\d+$"))
+                    & ~(filters.COMMAND)
+                    & filter_not_conf,
+                    loan_quant_select,
+                ),
+                MessageHandler(
+                    filters.Regex("^\d+$") & ~(filters.COMMAND), loan_order_conf
+                ),
+                MessageHandler(
+                    filters.TEXT
+                    & filters.Regex("^Confirm|Cancel|Request Another Item$")
+                    & ~(filters.COMMAND),
+                    loan_conf_reply,
+                ),
+            ],
         },
         fallbacks=[CommandHandler("start", start)],
     )
