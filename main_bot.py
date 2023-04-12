@@ -17,6 +17,7 @@ from methods.rkey_methods import *
 from methods.data_methods import *
 from methods.filter_methods import *
 from database.db_models import *
+import pandas as pd
 import uuid
 
 # METHODS AND VARS
@@ -129,7 +130,6 @@ async def loan_item_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     temp_order = dict(context.user_data["temp_order"])
     temp_order["cat_name"] = cat_name
     context.user_data["temp_order"] = temp_order
-    print(temp_order)
     await update.message.reply_text(
         f"What item in {cat_name}?", reply_markup=show_keyboard_items(cat_name)
     ),
@@ -141,7 +141,6 @@ async def loan_quant_select(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     temp_order = dict(context.user_data["temp_order"])
     temp_order["item_name"] = item_selected
     context.user_data["temp_order"] = temp_order
-    print(temp_order)
     await update.message.reply_text(
         f"How many of '{item_selected}' do you want to loan out?"
     )
@@ -152,14 +151,13 @@ async def loan_order_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     quant_selected = update.message.text
     temp_order = dict(context.user_data["temp_order"])
     temp_order["item_quantity"] = int(quant_selected)
+    context.user_data["temp_order"] = temp_order
+    order_df = pd.DataFrame.from_dict(dict(context.user_data["temp_order"], index=[0]))
+    order_df = order_df.set_index("order_id")
+    order_df.pop("index")
+    print(order_df)
     await update.message.reply_text(
-        f"""
-Your current loan request is as follows:\n\n
-Item Category: {temp_order["cat_name"]}\n
-Item Name: {temp_order["item_name"]}\n
-Ordered Quantity: {temp_order["item_quantity"]}\n\n
-Is this all you would like to request?
-""",
+        f"Is this all you would like to request?",
         reply_markup=show_keyboard_conf_loan(),
     )
     return LOAN_STATE
@@ -171,12 +169,17 @@ async def loan_conf_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
     loan_conf_reply = update.message.text
     if loan_conf_reply.lower() == "confirm":
-        pass
+        await update.message.reply_text(
+            "Completed loan test route.", reply_markup=reply_markup
+        )
+
     elif loan_conf_reply.lower() == "cancel":
-        pass
+        await update.message.reply_text(
+            "You cancelled the loan order.", reply_markup=reply_markup
+        )
+
     elif loan_conf_reply.lower() == "request another item":
         pass
-    await update.message.reply("Completed loan test route.", reply_markup=reply_markup)
     return ACTION_START
 
 
@@ -341,13 +344,11 @@ def main() -> "Start Bot":
 if __name__ == "__main__":
 
     # Loading in initial data for database
-    db.recreate_database(c)
-    DATADIR = "./database/data/spreadsheets/"
-    load_in_db(os.path.join(DATADIR, "data_stock.xlsx"), c, "stock")
-    load_in_db(os.path.join(DATADIR, "data_categories.xlsx"), c, "category")
+    # db.recreate_database(c)
+    # DATADIR = "./database/data/spreadsheets/"
+    # load_in_db(os.path.join(DATADIR, "data_stock.xlsx"), c, "stock")
+    # load_in_db(os.path.join(DATADIR, "data_categories.xlsx"), c, "category")
 
     main()
-    print(get_cat_list())
-    print(get_item_list("cat1"))
     db.kill_all_sessions()
     c.dispose()

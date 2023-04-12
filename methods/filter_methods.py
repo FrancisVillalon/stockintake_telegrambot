@@ -9,7 +9,9 @@ class filter_category_only(MessageFilter):
 
 class filter_not_conf(MessageFilter):
     def filter(self, message):
-        return message.text not in ["Confirm", "Cancel", "Request Another Item"]
+        fil_bool = message.text not in ["Confirm", "Cancel", "Request Another Item"]
+        return fil_bool
 
 
 filter_category_only = filter_category_only()
+filter_not_conf = filter_not_conf()
