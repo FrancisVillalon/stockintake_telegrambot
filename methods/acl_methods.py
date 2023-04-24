@@ -121,3 +121,10 @@ def get_user_id(telegram_username):
     else:
         db.commit_kill(s)
         return None
+
+
+def get_admin_ids():
+    s = db.create_session(c)
+    query_str = s.query(Usr.telegram_id).filter(Usr.role == "admin").all()
+    list_admin_id = [x for (x,) in query_str]
+    return list_admin_id

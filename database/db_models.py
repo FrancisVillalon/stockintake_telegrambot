@@ -29,22 +29,48 @@ class Audit(Base):
     log_id = Column(Integer, primary_key=True)
     log_datetime = Column(DateTime)
     telegram_id = Column(String)
-    telegram_username = Column(String)
-    item_name = Column(String)
-    item_id = Column(String)
-    action_quantity = Column(Integer)
-    action_type = Column(String)
-    action_remarks = Column(String)
+    log_action = Column(String)
+    log_description = Column(String)
 
     def __repr__(self):
         return (
             f"<Audit(\n"
             f"log_id='{self.log_id}', log_datetime='{self.log_datetime}',\n"
-            f"telegram_id='{self.telegram_id}', telegram_name='{self.telegram_username}',\n"
-            f"item_name='{self.item_name}',item_id='{self.item_id}',\n"
-            f"action_quantity='{self.action_quantity}', action_type='{self.action_type}'"
+            f"telegram_id='{self.telegram_id}',\n"
+            f"log_action='{self.log_action}',log_description='{self.log_description}',\n"
             f")>"
         )
+
+
+class Loan(Base):
+    __tablename__ = "loan"
+    loan_id = Column(String, primary_key=True)
+    telegram_id = Column(String)
+    loan_status = Column(String)
+    item_id = Column(String)
+    item_quantity = Column(String)
+    approved_by = Column(String)
+    approved_datetime = Column(DateTime)
+    order_id = Column(String)
+
+    def __repr__(self):
+        return (
+            f"<Loan(\ntelegram_id='{self.telegram_id}',order_id='{self.order_id}',\n"
+            f"loan_id ='{self.loan_id}',loan_status='{self.loan_status}',\n"
+            f"item_id='{self.item_id}',item_quantity='{self.item_quantity}',\n"
+            f"approved_by='{self.approved_by}',approved_datetime='{self.approved_datetime}',\n"
+            f")>"
+        )
+
+
+class Order(Base):
+    __tablename__ = "order"
+    order_id = Column(String, primary_key=True)
+    telegram_id = Column(String)
+    order_datetime = Column(DateTime)
+
+    def __repr__(self):
+        return f"<Order(order_id='{self.order_id}',telegram_id='{self.telegram_id}',order_datetime='{self.order_datetime}')>"
 
 
 class Category(Base):

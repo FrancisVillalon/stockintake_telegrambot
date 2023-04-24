@@ -17,12 +17,12 @@ def show_keyboard_start(telegram_id, role):
 
 
 def show_keyboard_cat():
-    keyboard = [get_cat_list()]
+    keyboard = get_cat_list()
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
 
 
 def show_keyboard_items(cat_name):
-    keyboard = [get_item_list(cat_name)]
+    keyboard = get_item_list(cat_name)
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
 
 
@@ -32,5 +32,8 @@ def show_keyboard_conf():
 
 
 def show_keyboard_conf_loan():
-    keyboard = [["Confirm", "Cancel", "Request Another Item"]]
+    keyboard = [
+        ["Confirm Order", "Cancel Order"],
+        ["Cancel Loan Request", "Request Another Item"],
+    ]
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
