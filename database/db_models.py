@@ -47,7 +47,7 @@ class Loan(Base):
     loan_id = Column(String, primary_key=True)
     telegram_id = Column(String)
     loan_status = Column(String)
-    item_id = Column(String)
+    item_id = Column(Integer)
     item_quantity = Column(String)
     approved_by = Column(String)
     approved_datetime = Column(DateTime)
@@ -63,14 +63,14 @@ class Loan(Base):
         )
 
 
-class Order(Base):
-    __tablename__ = "order"
+class Ordr(Base):
+    __tablename__ = "ordr"
     order_id = Column(String, primary_key=True)
     telegram_id = Column(String)
     order_datetime = Column(DateTime)
 
     def __repr__(self):
-        return f"<Order(order_id='{self.order_id}',telegram_id='{self.telegram_id}',order_datetime='{self.order_datetime}')>"
+        return f"<Ordr(order_id='{self.order_id}',telegram_id='{self.telegram_id}',order_datetime='{self.order_datetime}')>"
 
 
 class Category(Base):

@@ -16,6 +16,13 @@ def load_in_db(file_path, c, table_name):
     conn.close()
 
 
+def load_df_into_db(df, c, table_name):
+    conn = c.connect()
+    df.to_sql(table_name, con=conn, if_exists="append", index=False)
+    conn.commit()
+    conn.close()
+
+
 def get_cat_list() -> "Get list of categories in database, used for keyboard":
     cat_list = [cat_name for (cat_name,) in s.query(Category.cat_name).all()]
     cat_list = [cat_list[x : x + 3] for x in range(0, len(cat_list), 3)]
@@ -73,7 +80,7 @@ def verify_item_cat(item_id, cat_id) -> "Check if this item belongs to this cate
 
 def set_order(order_id, telegram_id, order_datetime):
     s_temp = db.create_session(c)
-    _order = Order(
+    _order = Ordr(
         order_id=order_id, telegram_id=telegram_id, order_datetime=order_datetime
     )
     s_temp.add(_order)

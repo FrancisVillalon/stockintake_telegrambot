@@ -17,6 +17,7 @@ from methods.rkey_methods import *
 from methods.data_methods import *
 from methods.filter_methods import *
 from database.db_models import *
+from database.db_conn import *
 import pandas as pd
 import uuid
 from datetime import datetime
@@ -24,12 +25,13 @@ from datetime import datetime
 # METHODS AND VARS
 with open("./config.toml", "rb") as f:
     data = tomllib.load(f)
-    tele_key = data["telegram_bot"]["api_key"]
+    tele_key = data["test_telegram_bot"]["api_key"]
 # Basic logger to see debug errors
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
 # Menu states
 ACTION_START, LOAN_STATE, REG_STATE = range(3)
 
@@ -66,6 +68,7 @@ async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     match register_applicant(update.effective_chat.id, update.effective_chat.username):
         case 0:  # Registered user starting point
+            context.user_data.clear()
             usr_role = get_user_role(update.effective_chat.id)
             if usr_role:
                 context.user_data["role"] = usr_role
@@ -97,17 +100,22 @@ You have been registered as an applicant and your application is awaiting approv
 
 
 # ACTION_START
+
+# Loan route entry
 async def loan_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # Instantiate order id as well as empty order dictionary
     text = update.message.text
     context.user_data["choice"] = text
-    context.user_data["orders"] = {}
-    context.user_data["temp_order"] = {"order_id": str(uuid.uuid4())}
+    context.user_data["order_id"] = str(uuid.uuid4())
+    context.user_data["order"] = {}
+    # User selects category
     await update.message.reply_text(
         f"What is the category of the item?", reply_markup=show_keyboard_cat()
     )
     return LOAN_STATE
 
 
+# Register route entry
 async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if context.user_data["role"] != "admin":
         await update.message.reply_text(
@@ -125,10 +133,11 @@ async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 # LOAN_STATE
 async def loan_item_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # User selects item and loan request disctionary is instantiated in user_data dict
     cat_name = update.message.text
-    temp_order = dict(context.user_data["temp_order"])
-    temp_order["cat_name"] = cat_name
-    context.user_data["temp_order"] = temp_order
+    temp_lr = {}
+    temp_lr["cat_name"] = cat_name
+    context.user_data["temp_lr"] = temp_lr
     await update.message.reply_text(
         f"What item in {cat_name}?", reply_markup=show_keyboard_items(cat_name)
     ),
@@ -136,18 +145,48 @@ async def loan_item_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def loan_quant_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
+    # Check if lr exists
+    user_data = context.user_data
+    if "temp_lr" not in user_data.keys():
+        usr_role = get_user_role(update.effective_chat.id)
+        user_data["role"] = get_user_role(usr_role)
+        await update.effective_chat.send_message(
+            f"Invalid operation performed. Returning to start."
+        )
+        await update.effective_chat.send_message(
+            f"Welcome back {update.effective_chat.username}! What would you like to do today?",
+            reply_markup=show_keyboard_start(update.effective_chat.id, usr_role),
+        )
+        return ACTION_START
+
+    # Update lr
     item_selected = update.message.text
-    temp_order = dict(context.user_data["temp_order"])
-    temp_order["item_name"] = item_selected
-    context.user_data["temp_order"] = temp_order
+    temp_lr = dict(context.user_data["temp_lr"])
+    temp_lr["item_name"] = item_selected
+    try:
+        item_id = get_item_id(temp_lr["cat_name"], temp_lr["item_name"])
+    except:
+        await update.message.reply_text(
+            f"Query for '{temp_lr['item_name']}' under '{temp_lr['cat_name']}' has failed.\nPlease reselect item from menu.",
+            reply_markup=show_keyboard_items(temp_lr["cat_name"]),
+        )
+        return LOAN_STATE
+    temp_lr["item_id"] = item_id
+    context.user_data["temp_lr"] = temp_lr
+
     # Display current stock
-    item_details = get_item_details(
-        get_item_id(temp_order["cat_name"], temp_order["item_name"])
-    )
+    item_details = get_item_details(item_id)
+    if item_details.item_quantity <= 0:
+        await update.message.reply_text(
+            f"This item is currently unavailable. Please select another item.",
+            reply_markup=show_keyboard_cat(),
+        )
+        return LOAN_STATE
     caption_text = f"""
-ITEM NAME: {item_details.item_name}
-ITEM DESCRIPTION: {item_details.item_description}
-ITEM STOCK: {item_details.item_quantity}
+NAME: {item_details.item_name}
+DESCRIPTION: {item_details.item_description}
+STOCK: {item_details.item_quantity}
     """
     await update.message.reply_photo(item_details.img_path, caption=caption_text)
     await update.message.reply_text(
@@ -157,14 +196,51 @@ ITEM STOCK: {item_details.item_quantity}
 
 
 async def loan_order_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_data = context.user_data
+
+    # LR validation
+    if "temp_lr" not in user_data.keys():
+        usr_role = get_user_role(update.effective_chat.id)
+        user_data["role"] = get_user_role(usr_role)
+        await update.effective_chat.send_message(
+            f"Invalid operation performed. Returning to start."
+        )
+        await update.effective_chat.send_message(
+            f"Welcome back {update.effective_chat.username}! What would you like to do today?",
+            reply_markup=show_keyboard_start(update.effective_chat.id, usr_role),
+        )
+        return ACTION_START
+    elif "temp_lr" in user_data.keys():
+        lr_dict = dict(user_data["temp_lr"])
+        if "cat_name" not in lr_dict.keys():
+            await update.message.reply_text(
+                f"Please select a category.", reply_markup=show_keyboard_cat()
+            )
+            return LOAN_STATE
+        elif "item_name" not in lr_dict.keys():
+            selected_cat = lr_dict["cat_name"]
+            await update.message.reply_text(
+                f"Please select an item in {selected_cat}",
+                reply_markup=show_keyboard_items(selected_cat),
+            )
+            return LOAN_STATE
+
+    # loan request confirmation
     quant_selected = update.message.text
-    temp_order = dict(context.user_data["temp_order"])
-    temp_order["item_quantity"] = int(quant_selected)
-    context.user_data["temp_order"] = temp_order
-    order_df = pd.DataFrame.from_dict(dict(context.user_data["temp_order"], index=[0]))
-    order_df = order_df.set_index("order_id")
-    order_df.pop("index")
-    await update.message.reply_text(f"Order requested \n\n {temp_order}")
+    # quant input validation
+    item_quant = get_item_details(user_data["temp_lr"]["item_id"]).item_quantity
+    if int(quant_selected) > int(item_quant):
+        await update.message.reply_text(
+            f"You selected an invalid quantity.\nCurrent stock is '{item_quant}', you requested '{quant_selected}'.\nPlease reselect a quantity. "
+        )
+        return None
+    # update lr
+    temp_lr = dict(context.user_data["temp_lr"])
+    temp_lr["item_quantity"] = int(quant_selected)
+    context.user_data["temp_lr"] = temp_lr
+    # Show current loan request
+    lr_df = pd.DataFrame.from_dict(dict(context.user_data["temp_lr"], index=[0]))
+    await update.message.reply_text(f"Loan requested with details: \n\n {temp_lr}")
     await update.message.reply_text(
         f"Is this all you would like to request?",
         reply_markup=show_keyboard_conf_loan(),
@@ -173,38 +249,127 @@ async def loan_order_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def loan_conf_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
+    user_data = context.user_data
+    # Database intake and handling prompt reply
     reply_markup = show_keyboard_start(
         update.effective_chat.id, context.user_data["role"]
     )
     loan_conf_reply = update.message.text
-    if loan_conf_reply.lower() == "confirm":
-        temp_order = context.user_data["temp_order"]
-        temp_order["datetime"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        context.user_data["temp_order"] = temp_order
-        order_df = pd.DataFrame.from_dict(
-            dict(context.user_data["temp_order"], index=[0])
+    # Route for confirming an order
+    if loan_conf_reply.lower() == "confirm order":
+        # Save current LR and del LR placeholder, Only if LR is awaiting to be added to order
+        existing_order = dict(context.user_data["order"])
+        if "temp_lr" in user_data.keys():
+            selected_lr = user_data["temp_lr"]
+            del user_data["temp_lr"]
+            loan_id = str(uuid.uuid4())
+            # Check if the LR being put in already exists in order
+            if len(existing_order) != 0:
+                eo_df = pd.DataFrame.from_dict(existing_order).T
+                cat_item_pd_filter = (eo_df["cat_name"] == selected_lr["cat_name"]) & (
+                    eo_df["item_name"] == selected_lr["item_name"]
+                )
+                if not eo_df.loc[cat_item_pd_filter].empty:
+                    await update.message.reply_text(
+                        f"A loan request for '{selected_lr['item_name']}' is already in the order.\n Overwriting old LR with new one."
+                    )
+                    eo_df.loc[cat_item_pd_filter, "item_quantity"] = selected_lr[
+                        "item_quantity"
+                    ]
+                    existing_order = eo_df.T.to_dict()
+                else:
+                    existing_order[loan_id] = selected_lr
+                context.user_data["order"] = existing_order
+            else:
+                # Update existing order
+                existing_order[loan_id] = selected_lr
+                context.user_data["order"] = existing_order
+
+        # Order is empty , possible case if user places LR and then cancels LR
+        if len(user_data["order"].keys()) == 0:
+            await update.message.reply_text(
+                f"Your order cannot be confirmed because it is empty. Please request an item.",
+                reply_markup=show_keyboard_conf_loan(),
+            )
+            return None
+
+        # Instantiate order df for database intake
+        order_df = pd.DataFrame.from_dict(existing_order).T
+        order_df["item_id"] = order_df.apply(
+            lambda x: get_item_id(x["cat_name"], x["item_name"]), axis=1
         )
-        order_df = order_df.set_index("order_id")
-        order_df.pop("index")
-        # Notify admins and send order complete msg
+        order_df["order_id"] = context.user_data["order_id"]
+        order_df.index.names = ["loan_id"]
+        order_df = order_df.reset_index()
+        print(order_df)
+        # Notify admins of order placed
+        order_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         notify_admins = get_admin_ids()
         for admin in notify_admins:
             await context.bot.send_message(
                 chat_id=admin,
-                text=f"{update.effective_chat.username} has just placed in a loan request with details {context.user_data['temp_order']}",
+                text=f"{update.effective_chat.username} has just placed in an order with order id {context.user_data['order_id']}",
             )
+        # Completion message
         await update.message.reply_text(
             "Completed loan test route.", reply_markup=reply_markup
         )
+        user_data.clear()
+        user_data["role"] = get_user_role(update.effective_chat.id)
+        return ACTION_START
 
-    elif loan_conf_reply.lower() == "cancel":
+    # Route for cancelling the entire order
+    elif loan_conf_reply.lower() == "cancel order":
+        user_data.clear()
+        user_data["role"] = get_user_role(update.effective_chat.id)
         await update.message.reply_text(
-            "You cancelled the loan order.", reply_markup=reply_markup
+            "You cancelled the order.", reply_markup=reply_markup
         )
+        return ACTION_START
 
+    # Route for cancelling loan request
+    elif loan_conf_reply.lower() == "cancel loan request":
+        # Del current LR placeholder but retain order id
+        del user_data["temp_lr"]
+        await update.message.reply_text(
+            f"Cancelled current loan request. What would you like to do?",
+            reply_markup=show_keyboard_conf_loan(),
+        )
+        return None
+
+    # Route request another item
     elif loan_conf_reply.lower() == "request another item":
-        pass
-    return ACTION_START
+        if "temp_lr" in user_data.keys():
+            selected_lr = user_data["temp_lr"]
+            del user_data["temp_lr"]
+            loan_id = str(uuid.uuid4())
+            existing_order = dict(context.user_data["order"])
+            # Check if the LR being put in already exists in order
+            if len(existing_order) != 0:
+                eo_df = pd.DataFrame.from_dict(existing_order).T
+                cat_item_pd_filter = (eo_df["cat_name"] == selected_lr["cat_name"]) & (
+                    eo_df["item_name"] == selected_lr["item_name"]
+                )
+                if not eo_df.loc[cat_item_pd_filter].empty:
+                    await update.message.reply_text(
+                        f"A loan request for '{selected_lr['item_name']}' is already in the order.\n Overwriting old LR with new one."
+                    )
+                    eo_df.loc[cat_item_pd_filter, "item_quantity"] = selected_lr[
+                        "item_quantity"
+                    ]
+                    existing_order = eo_df.T.to_dict()
+                else:
+                    existing_order[loan_id] = selected_lr
+                context.user_data["order"] = existing_order
+            else:
+                # Update existing order
+                existing_order[loan_id] = selected_lr
+                context.user_data["order"] = existing_order
+        await update.message.reply_text(
+            f"What category is the item?", reply_markup=show_keyboard_cat()
+        )
+        return LOAN_STATE
 
 
 # REG STATE
@@ -334,23 +499,21 @@ def main() -> "Start Bot":
             ],
             LOAN_STATE: [
                 MessageHandler(
-                    filter_category_only & ~(filters.COMMAND) & filters.TEXT,
+                    filter_category_only & ~(filters.COMMAND),
                     loan_item_select,
                 ),
                 MessageHandler(
-                    filters.TEXT
-                    & ~(filters.Regex("^\d+$"))
+                    ~(filters.Regex("^\d+$"))
                     & ~(filters.COMMAND)
-                    & filter_not_conf,
+                    & filter_not_conf
+                    & filter_item_only,
                     loan_quant_select,
                 ),
                 MessageHandler(
                     filters.Regex("^\d+$") & ~(filters.COMMAND), loan_order_conf
                 ),
                 MessageHandler(
-                    filters.TEXT
-                    & filters.Regex("^Confirm|Cancel|Request Another Item$")
-                    & ~(filters.COMMAND),
+                    filter_is_conf & ~(filters.COMMAND) & ~filters.Regex("^\d+$"),
                     loan_conf_reply,
                 ),
             ],
@@ -367,7 +530,7 @@ def main() -> "Start Bot":
 # Run
 if __name__ == "__main__":
 
-    # Loading in initial data for database
+    # # Loading in initial data for database
     # db.recreate_database(c)
     # DATADIR = "./database/data/spreadsheets/"
     # load_in_db(os.path.join(DATADIR, "data_stock.xlsx"), c, "stock")
