@@ -13,10 +13,47 @@ with open("./config.toml", "rb") as f:
     db_secret = data["database"]["db_secret"]
     db_name = data["database"]["db_name"]
 
+    # Refactor code later so the production and testing is more clearly split
+    test_db_user = data["test_database"]["db_user"]
+    test_db_secret = data["test_database"]["db_secret"]
+    test_db_name = data["test_database"]["db_name"]
+
 
 class db_conn:
     def __init__(self):
         self.DB_STRING = f"postgresql://{db_user}:{db_secret}@127.0.0.1:5432/{db_name}"
+
+    def get_connection(self):
+        global _engine
+        if not _engine:
+            _engine = create_engine(self.DB_STRING)
+        return _engine
+
+    def recreate_database(self, c):
+        Base.metadata.drop_all(c)
+        Base.metadata.create_all(c)
+        return
+
+    def create_session(self, c):
+        return Session(bind=c)
+
+    def commit_kill(self, s):
+        s.commit()
+        s.close()
+        return
+
+    def kill_conn(self, c):
+        c.close()
+        return
+
+    def kill_all_sessions(self):
+        close_all_sessions()
+        return
+
+
+class test_db_conn:
+    def __init__(self):
+        self.DB_STRING = f"postgresql://{test_db_user}:{test_db_secret}@127.0.0.1:5432/{test_db_name}"
 
     def get_connection(self):
         global _engine

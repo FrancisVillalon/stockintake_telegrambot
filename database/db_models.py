@@ -26,7 +26,7 @@ class Stock(Base):
 
 class Audit(Base):
     __tablename__ = "audit"
-    log_id = Column(Integer, primary_key=True)
+    log_id = Column(String, primary_key=True)
     log_datetime = Column(DateTime)
     telegram_id = Column(String)
     log_action = Column(String)

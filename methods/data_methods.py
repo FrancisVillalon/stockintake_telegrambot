@@ -1,13 +1,15 @@
 import pandas as pd
 from database.db_conn import *
 from database.db_models import *
+from sqlalchemy import desc
 import os
-
+import uuid
+from datetime import datetime
 
 c = db.get_connection()
 s = db.create_session(c)
 
-
+# Generic
 def load_in_db(file_path, c, table_name):
     df = pd.read_excel(file_path, index_col=False)
     conn = c.connect()
@@ -51,6 +53,15 @@ def get_all_item_list() -> "Retrieve list of all item names in stock":
     return item_list
 
 
+def get_all_items_cat(cat_name) -> "Retrieve list of all item names in category":
+    q = (
+        s.query(Stock)
+        .join(Category, Stock.cat_id == Category.cat_id)
+        .filter((Category.cat_name == f"{cat_name}"))
+    ).all()
+    return q
+
+
 def get_item_id(cat_name, item_name):
     # DetachedInstanceError
     q = (
@@ -78,6 +89,7 @@ def verify_item_cat(item_id, cat_id) -> "Check if this item belongs to this cate
     return q is not None
 
 
+# Loan system related
 def set_order(order_id, telegram_id, order_datetime):
     s_temp = db.create_session(c)
     _order = Ordr(
@@ -88,6 +100,7 @@ def set_order(order_id, telegram_id, order_datetime):
     return
 
 
+# Unneeded method
 def set_loan(
     loan_id,
     telegram_id,
@@ -110,4 +123,58 @@ def set_loan(
         order_id=order_id,
     )
     db.commit_kill(s_temp)
+    return
+
+
+# Laundry system related
+def get_laundry_last():
+    q = (
+        s.query(Audit)
+        .order_by(desc(Audit.log_datetime))
+        .filter(Audit.log_action == "LAUNDRY_UPDATE_COMPLETE")
+        .limit(1)
+        .first()
+    )
+    print(q)
+    return (q.telegram_id, q.log_datetime)
+
+
+def update_laundry(update_dict, log_id, tid):
+    l = list(update_dict.items())
+    s = db.create_session(c)
+    for item, new_quant in l:
+        q = s.query(Stock).filter(Stock.item_name == f"{item}")
+        cur_quant = q.first().item_quantity
+        q.update({Stock.item_quantity: int(new_quant)})
+        audit_laundry_quantity_update(
+            tid,
+            f"Laundry quantity update related to log_id: {log_id}, {item}: {cur_quant} -> {new_quant} ",
+        )
+    db.commit_kill(s)
+
+
+# Audit system related
+def audit_laundry_update_complete(tid, log_description, log_id):
+    new_log = Audit(
+        log_id=log_id,
+        log_datetime=datetime.now(),
+        telegram_id=f"{tid}",
+        log_action=f"LAUNDRY_UPDATE_COMPLETE",
+        log_description=f"{log_description}",
+    )
+    s.add(new_log)
+    db.commit_kill(s)
+    return
+
+
+def audit_laundry_quantity_update(tid, log_description):
+    new_log = Audit(
+        log_id=f"{str(uuid.uuid4())[:8]}",
+        log_datetime=datetime.now(),
+        telegram_id=f"{tid}",
+        log_action=f"LAUNDRY_QUANTITY_UPDATE",
+        log_description=f"{log_description}",
+    )
+    s.add(new_log)
+    db.commit_kill(s)
     return

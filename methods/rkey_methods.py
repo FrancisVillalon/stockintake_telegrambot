@@ -5,12 +5,12 @@ from methods.data_methods import *
 
 def show_keyboard_start(telegram_id, role):
     if role == "admin":
-        keyboard = [["Register", "Loan"]]
+        keyboard = [["Register", "Loan"], ["Laundry"]]
         return ReplyKeyboardMarkup(
             keyboard, one_time_keyboard=True, resize_keyboard=True
         )
     elif role == "user":
-        keyboard = [["Loan"]]
+        keyboard = [["Laundry", "Loan"]]
         return ReplyKeyboardMarkup(
             keyboard, one_time_keyboard=True, resize_keyboard=True
         )
@@ -33,7 +33,12 @@ def show_keyboard_conf():
 
 def show_keyboard_conf_loan():
     keyboard = [
+        ["Request Another Item", "Cancel Loan Request"],
         ["Confirm Order", "Cancel Order"],
-        ["Cancel Loan Request", "Request Another Item"],
     ]
+    return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+
+
+def show_keyboard_laundry_conf():
+    keyboard = [["Complete Laundry Update", "Do Not Update"]]
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)

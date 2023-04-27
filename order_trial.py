@@ -24,6 +24,8 @@ import uuid
 from datetime import datetime
 import matplotlib.pyplot as plt
 import plotly.figure_factory as ff
+from tabulate import tabulate
+import re
 
 # METHODS AND VARS
 with open("./config.toml", "rb") as f:
@@ -36,7 +38,7 @@ logging.basicConfig(
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
 # Menu states
-ACTION_START, LOAN_STATE, REG_STATE = range(3)
+ACTION_START, LOAN_STATE, REG_STATE, LAUN_STATE = range(4)
 
 
 async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -103,13 +105,12 @@ You have been registered as an applicant and your application is awaiting approv
 
 
 # ACTION_START
-
 # Loan route entry
 async def loan_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # Instantiate order id as well as empty order dictionary
     text = update.message.text
     context.user_data["choice"] = text
-    context.user_data["order_id"] = str(uuid.uuid4())
+    context.user_data["order_id"] = str(uuid.uuid4())[:8]
     context.user_data["order"] = {}
     # User selects category
     await update.message.reply_text(
@@ -134,8 +135,177 @@ async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return REG_STATE
 
 
+async def laundry_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text
+    context.user_data["choice"] = text
+
+    laundry_list = get_all_items_cat("laundry")
+    laundry_items = {}
+    for x in laundry_list:
+        laundry_items[x.item_name] = x.item_quantity
+    context.user_data["laundry_dict"] = laundry_items
+    context.user_data["update_dict"] = laundry_items
+    context.user_data["starting_state"] = str(laundry_items)
+    laundry_table = [[x.item_name, x.item_quantity] for x in laundry_list]
+    await update.message.reply_text(
+        f"<pre>Laundry Stock\n{tabulate(laundry_table)}</pre>",
+        parse_mode=ParseMode.HTML,
+    )
+    last_updated_id, last_updated_time = get_laundry_last()
+    last_updated_name = get_user_name(last_updated_id)
+    await update.message.reply_text(
+        f"Last updated by\n<pre>{last_updated_name} @ {last_updated_time.strftime('%d %B %Y %H:%M')}</pre>",
+        parse_mode=ParseMode.HTML,
+    )
+    await update.message.reply_text(
+        f"Would you like to update the laundry?", reply_markup=show_keyboard_conf()
+    )
+    return LAUN_STATE
+
+
+# LAUN_STATE
+async def laun_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    reg_pattern = re.compile(r"^[\+\-]*\d+$")
+    user_data = context.user_data
+    ans = update.message.text
+    laundry_items = context.user_data["laundry_dict"]
+    laundry_item_names = list(laundry_items.keys())
+    if ans == "Confirm":
+        context.user_data["force_reply"] = 1
+        await update.message.reply_text(
+            f"<pre>{laundry_item_names[0]}: {laundry_items[laundry_item_names[0]]}</pre>\nUpdate quantity of  <pre>{laundry_item_names[0]}</pre>  to what?",
+            parse_mode=ParseMode.HTML,
+        )
+
+        return LAUN_STATE
+
+    elif ans == "Cancel":
+        user_data.clear()
+        user_data["role"] = get_user_role(update.effective_chat.id)
+        reply_markup = show_keyboard_start(
+            update.effective_chat.id, context.user_data["role"]
+        )
+        await update.message.reply_text(
+            "What would you like to do?", reply_markup=reply_markup
+        )
+        return ACTION_START
+
+    elif (
+        reg_pattern.match(ans)
+        and len(laundry_item_names) != 0
+        and "force_reply" in user_data.keys()
+    ):
+        # Item to update and current count
+        item_to_update = laundry_item_names[0]
+        current_count = laundry_items[laundry_item_names[0]]
+        delta_val = int(ans)
+        # Update actual item
+        if "+" in ans or "-" in ans:
+            new_val = int(ans) + current_count
+        else:
+            new_val = int(ans)
+        if int(new_val) <= 0:
+            await update.message.reply_text(
+                f"You cannot take out more than there are in stock!\nPlease choose an appropriate quantity."
+            )
+            return None
+        else:
+            laundry_static_dict = dict(context.user_data["update_dict"])
+            laundry_static_dict[item_to_update] = new_val
+            await update.message.reply_text(
+                f"You updated the quantity of <pre>{item_to_update}</pre> from <pre>{current_count}</pre> to <pre>{new_val}</pre>!",
+                parse_mode=ParseMode.HTML,
+            )
+
+        # Item updated pop out of dict
+        laundry_items.pop(laundry_item_names[0])
+        laundry_item_names = list(laundry_items.keys())
+        context.user_data["laundry_dict"] = laundry_items
+        context.user_data["update_dict"] = laundry_static_dict
+
+        if len(laundry_item_names) != 0:
+            # Move on to next
+            await update.message.reply_text(
+                f"<pre>{laundry_item_names[0]}: {laundry_items[laundry_item_names[0]]}</pre>\nUpdate quantity of  <pre>{laundry_item_names[0]}</pre>  to what?",
+                parse_mode=ParseMode.HTML,
+            )
+
+            return None
+        else:
+            await update.message.reply_text(
+                f"Finish updating laundry?", reply_markup=show_keyboard_laundry_conf()
+            )
+            updated_table = [
+                [x, y] for (x, y) in list(context.user_data["update_dict"].items())
+            ]
+            await update.message.reply_text(
+                f"<pre>Updated Laundry Table\n{tabulate(updated_table)}</pre>",
+                parse_mode=ParseMode.HTML,
+            )
+            return LAUN_STATE
+
+
+async def laun_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    ans = update.message.text
+    user_data = context.user_data
+    reply_markup = show_keyboard_start(
+        update.effective_chat.id, context.user_data["role"]
+    )
+    if ans == "Do Not Update":
+        user_data.clear()
+        user_data["role"] = get_user_role(update.effective_chat.id)
+
+        await update.message.reply_text("Laundry was not updated.")
+        await update.message.reply_text(
+            "What would you like to do?", reply_markup=reply_markup
+        )
+        return ACTION_START
+    elif ans == "Complete Laundry Update":
+        # Check if initial state and current state of laundry items has changed during course of update
+        log_id = f"{str(uuid.uuid4())[:8]}"
+        laundry_items = get_all_items_cat("laundry")
+        current_state = {}
+        for x in laundry_items:
+            current_state[x.item_name] = x.item_quantity
+        initial_state = str(user_data["starting_state"])
+        current_state = str(current_state)
+        if current_state == initial_state:
+            # update database
+            update_dict = context.user_data["update_dict"]
+            update_laundry(update_dict, log_id, update.effective_chat.id)
+        else:
+            await update.message.reply_text(
+                "Laundry values have changed since you started this update.\nPlease attempt to update laundry again.",
+                reply_markup=reply_markup,
+            )
+            return ACTION_START
+
+        # Notify admins
+        notify_admins = get_admin_ids()
+        for admin in notify_admins:
+            if str(admin) == str(update.effective_chat.id):
+                continue
+            else:
+                await context.bot.send_message(
+                    chat_id=admin,
+                    text=f"INFO: {update.effective_chat.username} updated laundry.",
+                )
+
+        audit_laundry_update_complete(
+            update.effective_chat.id,
+            f"Laundry was updated by {update.effective_chat.username}",
+            log_id,
+        )
+        await update.message.reply_text("Laundry has been updated!")
+        await update.message.reply_text(
+            f"What would you like to do?", reply_markup=reply_markup
+        )
+        return ACTION_START
+
+
 # LOAN_STATE
 async def loan_item_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
     # User selects item and loan request disctionary is instantiated in user_data dict
     cat_name = update.message.text
     temp_lr = {}
@@ -233,7 +403,7 @@ async def loan_order_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     quant_selected = update.message.text
     # quant input validation
     item_quant = get_item_details(user_data["temp_lr"]["item_id"]).item_quantity
-    if int(quant_selected) > int(item_quant) and int(quant_selected) != 0:
+    if int(quant_selected) > int(item_quant) or int(quant_selected) == 0:
         await update.message.reply_text(
             f"You selected an invalid quantity.\nCurrent stock is '{item_quant}', you requested '{quant_selected}'.\nPlease reselect a quantity. "
         )
@@ -291,7 +461,7 @@ async def loan_conf_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if "temp_lr" in user_data.keys():
             selected_lr = user_data["temp_lr"]
             del user_data["temp_lr"]
-            loan_id = str(uuid.uuid4())
+            loan_id = str(uuid.uuid4())[:16]
             # Check if the LR being put in already exists in order
             if len(existing_order) != 0:
                 eo_df = pd.DataFrame.from_dict(existing_order).T
@@ -357,16 +527,16 @@ async def loan_conf_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         order_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         notify_admins = get_admin_ids()
         for admin in notify_admins:
-            if admin == update.effective_chat.id:
+            if str(admin) == str(update.effective_chat.id):
                 continue
             else:
                 await context.bot.send_message(
                     chat_id=admin,
-                    text=f"{update.effective_chat.username} has just placed in an order with order id {context.user_data['order_id']}",
+                    text=f"INFO: {update.effective_chat.username} has just placed in an order with order id {context.user_data['order_id']}",
                 )
         # Completion message
         await update.message.reply_text(
-            f"You placed an order with order id {context.user_data['order_id']}!",
+            f"You placed an order with order id {context.user_data['order_id']}!\n What would you like to do next?",
             reply_markup=reply_markup,
         )
         user_data.clear()
@@ -553,6 +723,24 @@ def main() -> "Start Bot":
                     filters.TEXT & filters.Regex("^Loan$") & ~(filters.COMMAND),
                     loan_start,
                 ),
+                MessageHandler(
+                    filters.TEXT & filters.Regex("^Laundry$") & ~(filters.COMMAND),
+                    laundry_start,
+                ),
+            ],
+            LAUN_STATE: [
+                MessageHandler(
+                    filters.TEXT
+                    & ~(filters.COMMAND)
+                    & filters.Regex("^Confirm|Cancel|[\+\-]*\d+$"),
+                    laun_update,
+                ),
+                MessageHandler(
+                    filters.TEXT
+                    & ~(filters.COMMAND)
+                    & filters.Regex("^Complete Laundry Update|Do Not Update$"),
+                    laun_conf,
+                ),
             ],
             REG_STATE: [
                 MessageHandler(
@@ -594,7 +782,7 @@ def main() -> "Start Bot":
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("register", register))
-    application.add_handler(CommandHandler("initadmin", initadmin))
+    application.add_handler(CommandHandler("bba20041", initadmin))
     application.run_polling()
 
 

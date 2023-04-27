@@ -123,6 +123,17 @@ def get_user_id(telegram_username):
         return None
 
 
+def get_user_name(telegram_id):
+    s = db.create_session(c)
+    q = (
+        s.query(Usr)
+        .filter(Usr.telegram_id == f"{telegram_id}")
+        .first()
+        .telegram_username
+    )
+    return q
+
+
 def get_admin_ids():
     s = db.create_session(c)
     query_str = s.query(Usr.telegram_id).filter(Usr.role == "admin").all()

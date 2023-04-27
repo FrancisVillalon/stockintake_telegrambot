@@ -4,5 +4,5 @@ from methods.data_methods import *
 
 db.recreate_database(c)
 DATADIR = "./database/data/spreadsheets/"
-load_in_db(os.path.join(DATADIR, "laundry_data_stock.xlsx"), c, "stock")
-load_in_db(os.path.join(DATADIR, "laundry_data_categories.xlsx"), c, "category")
+load_in_db(os.path.join(DATADIR, "data_stock.xlsx"), c, "stock")
+load_in_db(os.path.join(DATADIR, "data_categories.xlsx"), c, "category")
