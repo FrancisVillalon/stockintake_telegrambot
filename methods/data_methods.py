@@ -135,8 +135,7 @@ def get_laundry_last():
         .limit(1)
         .first()
     )
-    print(q)
-    return (q.telegram_id, q.log_datetime)
+    return q
 
 
 def update_laundry(update_dict, log_id, tid):

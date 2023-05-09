@@ -151,12 +151,17 @@ async def laundry_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         f"<pre>Laundry Stock\n{tabulate(laundry_table)}</pre>",
         parse_mode=ParseMode.HTML,
     )
-    last_updated_id, last_updated_time = get_laundry_last()
-    last_updated_name = get_user_name(last_updated_id)
-    await update.message.reply_text(
-        f"Last updated by\n<pre>{last_updated_name} @ {last_updated_time.strftime('%d %B %Y %H:%M')}</pre>",
-        parse_mode=ParseMode.HTML,
-    )
+    laundry_last = get_laundry_last()
+    if laundry_last:
+        last_updated_id, last_updated_time = (
+            laundry_last.telegram_id,
+            laundry_last.log_datetime,
+        )
+        last_updated_name = get_user_name(last_updated_id)
+        await update.message.reply_text(
+            f"Last updated by\n<pre>{last_updated_name} @ {last_updated_time.strftime('%d %B %Y %H:%M')}</pre>",
+            parse_mode=ParseMode.HTML,
+        )
     await update.message.reply_text(
         f"Would you like to update the laundry?", reply_markup=show_keyboard_conf()
     )
@@ -204,7 +209,7 @@ async def laun_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             new_val = int(ans) + current_count
         else:
             new_val = int(ans)
-        if int(new_val) <= 0:
+        if int(new_val) < 0:
             await update.message.reply_text(
                 f"You cannot take out more than there are in stock!\nPlease choose an appropriate quantity."
             )
@@ -698,8 +703,7 @@ async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(e)
     context.user_data["role"] = "admin"
     await update.effective_chat.send_message(
-        "Registered as Admin. Remove this later.",
-        reply_markup=show_keyboard_start(update.effective_chat.id, "admin"),
+        "Registered as Admin.\nType '/start' to get started.",
     )
     return ACTION_START
 

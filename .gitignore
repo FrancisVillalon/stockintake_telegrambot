@@ -6,3 +6,4 @@ db_init.sql
 test_db_init.sql
 __pycache__/*
 *.py[cod]
+documentation/*
