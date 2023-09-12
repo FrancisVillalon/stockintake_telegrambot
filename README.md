@@ -1,3 +1,4 @@
+# Discontinued
 # Stock Intake Telegram Bot
 
 The goal of this project is to create a stock intake system that enables
