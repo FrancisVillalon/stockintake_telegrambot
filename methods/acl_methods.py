@@ -10,7 +10,8 @@ with open("./config.toml", "rb") as f:
 
 c = db.get_connection()
 
-
+#! Add a delete user command
+#! Add a update user command
 def register_user(telegram_id, telegram_username, role):
     s = db.create_session(c)
     usr = Usr(

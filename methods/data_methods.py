@@ -1,10 +1,12 @@
-import pandas as pd
-from database.db_conn import *
-from database.db_models import *
-from sqlalchemy import desc
 import os
 import uuid
 from datetime import datetime
+
+import pandas as pd
+from sqlalchemy import desc
+
+from database.db_conn import *
+from database.db_models import *
 
 c = db.get_connection()
 s = db.create_session(c)
@@ -63,7 +65,6 @@ def get_all_items_cat(cat_name) -> "Retrieve list of all item names in category"
 
 
 def get_item_id(cat_name, item_name):
-    # DetachedInstanceError
     q = (
         s.query(Stock)
         .join(Category, Stock.cat_id == Category.cat_id)

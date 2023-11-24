@@ -7,3 +7,5 @@ test_db_init.sql
 __pycache__/*
 *.py[cod]
 documentation/*
+archive/*
+misc.py
