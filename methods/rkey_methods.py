@@ -1,6 +1,6 @@
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from database.db_conn import *
-from methods.data_methods import *
+from telegram import ReplyKeyboardMarkup
+
+from methods.data_methods import get_cat_list, get_item_list
 
 
 def show_keyboard_start(telegram_id, role):

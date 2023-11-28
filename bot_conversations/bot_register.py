@@ -39,10 +39,6 @@ async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.effective_chat.send_message(
                     f"Successfully reigstered {applicant} as a user."
                 )
-            case 0:
-                await update.effective_chat.send_message(
-                    f"This user is already verified."
-                )
             case -1:
                 await update.effective_chat.send_message(
                     f"We cannot find an applicant with username {applicant}."
@@ -99,11 +95,6 @@ async def register_conf_reply(
                 await update.effective_chat.send_message(
                     f"Successfully reigstered {applicant} as a user.",
                     reply_markup=reply_markup,
-                )
-
-            case 0:
-                await update.effective_chat.send_message(
-                    f"This user is already verified.", reply_markup=reply_markup
                 )
             case -1:
                 await update.effective_chat.send_message(

@@ -1,7 +1,8 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from methods.acl_methods import get_user_role, register_applicant
+from methods.acl_methods import (get_user_name, get_user_role,
+                                 register_applicant, update_username)
 from methods.rkey_methods import show_keyboard_start
 
 # Bot start point
@@ -13,6 +14,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.clear()
             usr_role = get_user_role(update.effective_chat.id)
             if usr_role:
+                usr_name = get_user_name(update.effective_chat.id)
+                if usr_name != update.effective_chat.username: #Update database if username changed
+                    update_username(update.effective_chat.id,update.effective_chat.username)
                 context.user_data["role"] = usr_role
                 reply_markup = show_keyboard_start(update.effective_chat.id, usr_role)
             await update.effective_chat.send_message(

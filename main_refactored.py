@@ -2,10 +2,10 @@ import logging
 import tomllib
 
 import pandas as pd
-from telegram.ext import (ApplicationBuilder, CommandHandler,
+from telegram.ext import (ApplicationBuilder, CommandHandler, ContextTypes,
                           ConversationHandler, MessageHandler, filters)
 
-from bot_conversations.bot_laundry import *
+from bot_conversations.bot_laundry import laun_conf, laun_update, laundry_start
 from bot_conversations.bot_loan import *
 from bot_conversations.bot_misc import *
 from bot_conversations.bot_register import *
@@ -18,7 +18,7 @@ def main():
     # METHODS AND VARS
     with open("./config.toml", "rb") as f:
         data = tomllib.load(f)
-        tele_key = data["test_telegram_bot"]["api_key"]
+        tele_key = data["telegram_bot"]["api_key"]
     # Basic logger to see debug errors
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -110,5 +110,3 @@ def main():
 # Run
 if __name__ == "__main__":
     main()
-    db.kill_all_sessions()
-    c.dispose()

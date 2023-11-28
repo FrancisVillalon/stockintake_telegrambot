@@ -1,10 +1,13 @@
 import tomllib
+import urllib.parse
+from contextlib import contextmanager
+
+import pandas as pd
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 from sqlalchemy.engine import URL
 from sqlalchemy.ext.automap import automap_base
-from sqlalchemy.orm import close_all_sessions
-import urllib.parse
+from sqlalchemy.orm import Session, close_all_sessions
+
 from database.db_models import *
 
 with open("./config.toml", "rb") as f:
@@ -13,75 +16,35 @@ with open("./config.toml", "rb") as f:
     db_secret = data["database"]["db_secret"]
     db_name = data["database"]["db_name"]
 
-    # Refactor code later so the production and testing is more clearly split
-    test_db_user = data["test_database"]["db_user"]
-    test_db_secret = data["test_database"]["db_secret"]
-    test_db_name = data["test_database"]["db_name"]
 
-
-class db_conn:
-    def __init__(self):
-        self.DB_STRING = f"postgresql://{db_user}:{db_secret}@127.0.0.1:5432/{db_name}"
-
-    def get_connection(self):
-        global _engine
-        if not _engine:
-            _engine = create_engine(self.DB_STRING)
-        return _engine
-
-    def recreate_database(self, c):
-        Base.metadata.drop_all(c)
-        Base.metadata.create_all(c)
-        return
-
-    def create_session(self, c):
-        return Session(bind=c)
-
-    def commit_kill(self, s):
-        s.commit()
-        s.close()
-        return
-
-    def kill_conn(self, c):
-        c.close()
-        return
-
-    def kill_all_sessions(self):
-        close_all_sessions()
-        return
-
-
-class test_db_conn:
-    def __init__(self):
-        self.DB_STRING = f"postgresql://{test_db_user}:{test_db_secret}@127.0.0.1:5432/{test_db_name}"
-
-    def get_connection(self):
-        global _engine
-        if not _engine:
-            _engine = create_engine(self.DB_STRING)
-        return _engine
-
-    def recreate_database(self, c):
-        Base.metadata.drop_all(c)
-        Base.metadata.create_all(c)
-        return
-
-    def create_session(self, c):
-        return Session(bind=c)
-
-    def commit_kill(self, s):
-        s.commit()
-        s.close()
-        return
-
-    def kill_conn(self, c):
-        c.close()
-        return
-
-    def kill_all_sessions(self):
-        close_all_sessions()
-        return
-
-
-_engine = None
-db = db_conn()
+class Database:
+    def __init__(self,db_url=f"postgresql://{db_user}:{db_secret}@127.0.0.1:5432/{db_name}"):
+        self.engine = create_engine(db_url)
+    
+    @contextmanager
+    def session_scope(self):
+        """Provide a transactional scope around a series of operations"""
+        session = self.create_session()
+        try: 
+            yield session 
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    
+    def create_session(self):
+        return Session(bind=self.engine)
+    
+    def load_excel_into_db(self,file_path,table_name):
+        df = pd.read_excel(file_path,table_name)
+        with self.engine.connect() as conn:
+            df.to_sql(table_name,con=conn,if_exists="append",index=False)
+    def load_df_into_db(self,df,table_name):
+        with self.engine.connect() as conn:
+            df.to_sql(table_name,con=conn, if_exists="append",index=False)
+    
+    def recreate_database(self):
+        Base.metadata.drop_all(self.engine)
+        Base.metadata.create_all(self.engine)
