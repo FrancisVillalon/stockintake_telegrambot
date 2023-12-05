@@ -4,6 +4,11 @@ from database.db_conn import Database
 from database.db_models import *
 from methods.audit_methods import audit_laundry_quantity_update
 
+""""
+Methods for retrieving data that is not user details.
+Examples: Getting list of items in a given category.
+"""
+
 db = Database()
 # Get list of categories in database, used for keyboard
 def get_cat_list():
@@ -44,7 +49,8 @@ def get_all_items_cat(cat_name):
             .join(Category, Stock.cat_id == Category.cat_id)
             .filter((Category.cat_name == f"{cat_name}"))
         ).all()
-        return q
+        result = [item.to_dict() for item in q]
+        return result
 
 
 def get_item_id(cat_name, item_name):
@@ -96,7 +102,10 @@ def get_laundry_last():
             .limit(1)
             .first()
         )
-        return q
+        if q:
+            return q.to_dict()
+        else:
+            return None
 
 
 def update_laundry(update_dict, log_id, tid):

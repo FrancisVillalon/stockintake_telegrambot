@@ -1,12 +1,14 @@
+"""
+Database class that handles the creation of sessions and 
+some other misc functions
+"""
+
 import tomllib
-import urllib.parse
 from contextlib import contextmanager
 
 import pandas as pd
 from sqlalchemy import create_engine
-from sqlalchemy.engine import URL
-from sqlalchemy.ext.automap import automap_base
-from sqlalchemy.orm import Session, close_all_sessions
+from sqlalchemy.orm import Session
 
 from database.db_models import *
 
@@ -38,11 +40,11 @@ class Database:
         return Session(bind=self.engine)
     
     def load_excel_into_db(self,file_path,table_name):
-        df = pd.read_excel(file_path,table_name)
-        with self.engine.connect() as conn:
+        df = pd.read_excel(file_path)
+        with self.engine.begin() as conn:
             df.to_sql(table_name,con=conn,if_exists="append",index=False)
     def load_df_into_db(self,df,table_name):
-        with self.engine.connect() as conn:
+        with self.engine.begin() as conn:
             df.to_sql(table_name,con=conn, if_exists="append",index=False)
     
     def recreate_database(self):

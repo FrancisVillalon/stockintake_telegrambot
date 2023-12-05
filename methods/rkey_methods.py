@@ -2,6 +2,11 @@ from telegram import ReplyKeyboardMarkup
 
 from methods.data_methods import get_cat_list, get_item_list
 
+"""
+Methods for generating the button keyboards shown to the user 
+Example: When a user is asked what category does the item they are requesting belong to, they are shown
+a keyboard showing all the possible categories.
+"""
 
 def show_keyboard_start(telegram_id, role):
     if role == "admin":

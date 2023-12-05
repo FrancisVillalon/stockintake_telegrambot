@@ -1,5 +1,9 @@
+"""
+Database Table definitions
+"""
+
+from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime
 
 Base = declarative_base()
 
@@ -22,6 +26,8 @@ class Stock(Base):
             f"item_name='{self.item_name}', img_path='{self.img_path}',cat_id='{self.cat_id}'"
             f")>"
         )
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 
 class Audit(Base):
@@ -40,7 +46,8 @@ class Audit(Base):
             f"log_action='{self.log_action}',log_description='{self.log_description}',\n"
             f")>"
         )
-
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 class Loan(Base):
     __tablename__ = "loan"
@@ -61,7 +68,8 @@ class Loan(Base):
             f"approved_by='{self.approved_by}',approved_datetime='{self.approved_datetime}',\n"
             f")>"
         )
-
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 class Ordr(Base):
     __tablename__ = "ordr"
@@ -71,7 +79,8 @@ class Ordr(Base):
 
     def __repr__(self):
         return f"<Ordr(order_id='{self.order_id}',telegram_id='{self.telegram_id}',order_datetime='{self.order_datetime}')>"
-
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 class Category(Base):
     __tablename__ = "category"
@@ -80,7 +89,8 @@ class Category(Base):
 
     def __repr__(self):
         return f"<Category(cat_id='{self.cat_id}', cat_name='{self.cat_name}')>"
-
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 class Usr(Base):
     __tablename__ = "usr"
@@ -90,7 +100,8 @@ class Usr(Base):
 
     def __repr__(self):
         return f"<User(telegram_id='{self.telegram_id}', telegram_username='{self.telegram_username}, role='{self.role}')>"
-
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 class Applicant(Base):
     __tablename__ = "applicant"
@@ -99,3 +110,5 @@ class Applicant(Base):
 
     def __repr__(self):
         return f"<Applicant(telegram_id='{self.telegram_id}', telegram_username='{self.telegram_username}')>"
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

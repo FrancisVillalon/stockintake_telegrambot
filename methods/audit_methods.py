@@ -4,6 +4,11 @@ from datetime import datetime
 from database.db_conn import Database
 from database.db_models import Audit
 
+"""
+Methods for audit/logging
+"""
+
+
 db = Database()
 # Audit system related
 def audit_laundry_update_complete(tid, log_description, log_id):

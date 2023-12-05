@@ -1,4 +1,9 @@
+"""
+Needs to be fixed
+"""
+
 import uuid
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -7,10 +12,14 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+from database.db_conn import Database
 from methods.acl_methods import *
+from methods.data_methods import *
 from methods.rkey_methods import *
 
-ACTION_START, LOAN_STATE, REG_STATE, LAUN_STATE = range(4)
+db = Database()
+LOAN_STATE = 2
+ACTION_START = 0
 # Loan route entry
 async def loan_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # Instantiate order id as well as empty order dictionary
@@ -231,7 +240,7 @@ async def loan_conf_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         intake_df = order_df.copy()
         intake_df.pop("cat_name")
         intake_df.pop("item_name")
-        load_df_into_db(intake_df, c, "loan")
+        db.load_df_into_db(intake_df, "loan")
         set_order(
             context.user_data["order_id"], update.effective_chat.id, datetime.now()
         )

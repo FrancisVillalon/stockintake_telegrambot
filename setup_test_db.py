@@ -1,3 +1,11 @@
+"""
+Basic setup file that drops all tables in the database and recreates 
+the tables using excel files. 
+
+This is used to put test data into the database for testing various application functions.
+"""
+
+
 import os
 
 import pandas as pd
@@ -14,15 +22,8 @@ db = Database()
 
 
 db.recreate_database()
-db.load_excel_into_db(os.path.join(DATADIR, "data_stock.xlsx"), db.DB_ENGINE, "stock")
-db.load_excel_into_db(os.path.join(DATADIR, "data_categories.xlsx"), db.DB_ENGINE, "category")
-with db.session_scope as s:
-    print([cat_name for (cat_name,) in s.query(Category.cat_name).all()])
-    print(
-        [
-            item_name
-            for (item_name, cat_id) in s.query(Stock.item_name, Stock.cat_id)
-            .filter(Stock.cat_id == 1)
-            .all()
-        ]
-    )
+print("Database has been purged.")
+db.load_excel_into_db(os.path.join(DATADIR, "data_stock.xlsx"), "stock")
+print("Stock data reinserted.")
+db.load_excel_into_db(os.path.join(DATADIR, "data_categories.xlsx"), "category")
+print("Categories data reinserted.")

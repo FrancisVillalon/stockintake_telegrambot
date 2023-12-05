@@ -2,6 +2,10 @@ from telegram.ext.filters import MessageFilter
 
 from methods.data_methods import get_all_item_list, get_cat_list
 
+"""
+Filter classes used in the bot MessageHandlers to ensure user response is appropriate
+"""
+
 
 class filter_category_only(MessageFilter):
     def filter(self, message):
