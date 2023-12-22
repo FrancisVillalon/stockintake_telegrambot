@@ -3,6 +3,7 @@ Basic setup file that drops all tables in the database and recreates
 the tables using excel files. 
 
 This is used to put test data into the database for testing various application functions.
+
 """
 
 
@@ -16,9 +17,7 @@ from database.db_models import Category, Stock
 DATADIR = "./database/data/spreadsheets/"
 
 
-
 db = Database()
-
 
 
 db.recreate_database()

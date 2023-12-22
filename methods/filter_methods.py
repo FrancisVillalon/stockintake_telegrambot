@@ -10,8 +10,7 @@ Filter classes used in the bot MessageHandlers to ensure user response is approp
 class filter_category_only(MessageFilter):
     def filter(self, message):
         cat_list = get_cat_list()
-        merged_list = [j for i in cat_list for j in i]
-        return message.text in merged_list
+        return message.text in cat_list
 
 
 class filter_item_only(MessageFilter):

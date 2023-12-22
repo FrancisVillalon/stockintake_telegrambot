@@ -1,5 +1,5 @@
 """
-Handles laundry functions
+Handles laundry functions.
 """
 
 
@@ -13,24 +13,33 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from methods.acl_methods import get_admin_ids, get_user_name, get_user_role
 from methods.audit_methods import audit_laundry_update_complete
-from methods.data_methods import (get_all_items_cat, get_laundry_last,
-                                  update_laundry)
+from methods.data_methods import get_all_items_cat, get_laundry_last, update_laundry
 from methods.rkey_methods import *
 
 LAUN_UPDATE = 0
 LAUN_CONF = 1
-LAUN_CANCEL =2
+LAUN_CANCEL = 2
+
+#! Add type hinting
+
 
 # Handling premature exit of operation
-async def laundry_premature_cancel(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    await update.effective_chat.send_message("Laundry update prematurely cancelled.",reply_markup=show_keyboard_start(update.effective_chat.id,context.user_data["role"]))
+async def laundry_premature_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_chat.send_message(
+        "Laundry update prematurely cancelled.",
+        reply_markup=show_keyboard_start(
+            update.effective_chat.id, context.user_data["role"]
+        ),
+    )
     context.user_data.clear()
     return ConversationHandler.END
 
 
 async def laundry_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    text = update.message.text
-    context.user_data["choice"] = text
+    # Make user busy in this conversation and define role
+    context.user_data["in_conversation"] = True
+    context.user_data["role"] = get_user_role(update.effective_chat.id)
+
     laundry_list = get_all_items_cat("laundry")
     laundry_items = {}
     for x in laundry_list:
@@ -38,7 +47,9 @@ async def laundry_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     context.user_data["laundry_dict"] = laundry_items
     context.user_data["update_dict"] = laundry_items
     context.user_data["starting_state"] = str(laundry_items)
-    laundry_table = [[item_name, item_quantity] for item_name,item_quantity in laundry_items.items()]
+    laundry_table = [
+        [item_name, item_quantity] for item_name, item_quantity in laundry_items.items()
+    ]
     await update.message.reply_text(
         f"<pre>Laundry Stock\n{tabulate(laundry_table)}</pre>",
         parse_mode=ParseMode.HTML,
@@ -76,7 +87,7 @@ async def laun_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             parse_mode=ParseMode.HTML,
         )
         return None
-    # User cancelled 
+    # User cancelled
     elif ans == "Cancel":
         user_data.clear()
         user_data["role"] = get_user_role(update.effective_chat.id)
@@ -87,7 +98,7 @@ async def laun_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             "Laundry update prematurely cancelled.", reply_markup=reply_markup
         )
         return ConversationHandler.END
-    # User has already confirmed of intent to update, awaiting valid response for update 
+    # User has already confirmed of intent to update, awaiting valid response for update
     elif (
         reg_pattern.match(ans)
         and len(laundry_item_names) != 0
@@ -111,7 +122,7 @@ async def laun_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             laundry_static_dict = dict(context.user_data["update_dict"])
             laundry_static_dict[item_to_update] = new_val
             await update.message.reply_text(
-                f"You updated the quantity of <pre>{item_to_update}</pre> from <pre>{current_count}</pre> to <pre>{new_val}</pre>!",
+                f"You updated the quantity of <pre>{item_to_update}</pre> from <pre>{current_count}</pre> to <pre>{new_val}</pre>",
                 parse_mode=ParseMode.HTML,
             )
 
@@ -121,8 +132,10 @@ async def laun_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         context.user_data["laundry_dict"] = laundry_items
         context.user_data["update_dict"] = laundry_static_dict
 
-        # Check if all laundry items were updated 
-        if len(laundry_item_names) != 0: # Not all items were updated yet, proceed to next item
+        # Check if all laundry items were updated
+        if (
+            len(laundry_item_names) != 0
+        ):  # Not all items were updated yet, proceed to next item
             # Move on to next
             await update.message.reply_text(
                 f"<pre>{laundry_item_names[0]}: {laundry_items[laundry_item_names[0]]}</pre>\nUpdate quantity of  <pre>{laundry_item_names[0]}</pre>  to what?",
@@ -130,7 +143,7 @@ async def laun_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             )
 
             return None
-        else: # All laundry items were updated. Ask user to confirm to commit changes
+        else:  # All laundry items were updated. Ask user to confirm to commit changes
             await update.message.reply_text(
                 f"Finish updating laundry?", reply_markup=show_keyboard_laundry_conf()
             )
@@ -175,9 +188,9 @@ async def laun_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             laundry_update_status = True
         else:
             await update.message.reply_text(
-                "Laundry values have changed since you started this update.\nPlease attempt to update laundry again.",
-                reply_markup=reply_markup,
+                "Laundry values have changed since you started this update.\nPlease attempt to update laundry again using /start."
             )
+            return ConversationHandler.END
 
         # Notify admins
         if laundry_update_status:
@@ -186,7 +199,7 @@ async def laun_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 if str(admin) == str(update.effective_chat.id):
                     await context.bot.send_message(
                         chat_id=admin,
-                        text=f"INFO: A message has been sent to other admins that you have updated the laundry."
+                        text=f"INFO: A message has been sent to other admins that you have updated the laundry.",
                     )
                     continue
                 else:
@@ -201,5 +214,7 @@ async def laun_conf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 log_id,
             )
             await update.message.reply_text("Laundry has been updated!")
+        # Conversation over, update conversation status
+        context.user_data.clear()
+        await update.message.reply_text(f"/start to do something else!")
         return ConversationHandler.END
-

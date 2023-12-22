@@ -1,6 +1,6 @@
 """
 This conversation handles the registration of users by admins.
-Applicants need to be registered by an admin through this conversation before being able to use the bot.
+Applicants need to be registered by an admin through this conversation before being able to use the bot
 """
 
 
@@ -18,9 +18,16 @@ REG_CONF_PROMPT = 0
 REG_TERMINUS = 1
 REG_CANCEL = 2
 
+
+#! Add type hinting
 # Handling premature exit of operation
-async def register_premature_cancel(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    await update.effective_chat.send_message("Registration prematurely cancelled.",reply_markup=show_keyboard_start(update.effective_chat.id,context.user_data["role"]))
+async def register_premature_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_chat.send_message(
+        "Registration prematurely cancelled.",
+        reply_markup=show_keyboard_start(
+            update.effective_chat.id, context.user_data["role"]
+        ),
+    )
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -37,11 +44,11 @@ async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 update.effective_chat.id, context.user_data["role"]
             ),
         )
-        return  ConversationHandler.END
+        return ConversationHandler.END
     text = update.message.text
-    context.user_data["choice"] = text
     await update.message.reply_text(f"Who do you want to register?")
     return REG_CONF_PROMPT
+
 
 # Admin inputs name to register here
 async def register_conf_prompt(
@@ -49,7 +56,7 @@ async def register_conf_prompt(
 ) -> int:
     applicant_name = update.message.text
     # Input validation
-    if match(r"^[A-Za-z0-9_]{5,}$",applicant_name) and str(applicant_name).upper():
+    if match(r"^[A-Za-z0-9_]{5,}$", applicant_name) and str(applicant_name).upper():
         await update.message.reply_text(
             f"You want to register applicant '{applicant_name}' ?",
             reply_markup=show_keyboard_conf(),
@@ -60,8 +67,9 @@ async def register_conf_prompt(
         await update.message.reply_text(
             "That is not a valid telegram name. Please enter a name that is not too short and only contains letters, numbers, and underscores."
         )
-        return None 
-  
+        return None
+
+
 # Admin confirmation reply -> CONVERSATION.END
 async def register_conf_reply(
     update: Update, context: ContextTypes.DEFAULT_TYPE

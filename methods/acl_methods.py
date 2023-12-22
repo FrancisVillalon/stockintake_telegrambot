@@ -7,40 +7,51 @@ from database.db_models import *
 
 """"
 Methods for handling user details and access control
-Example: Check if user is admin.
+Example: Check if user is admin
 """
 
 db = Database()
 
+
 # Get list of users that contains this string (case-insensitive)
 def search_user(searchString):
     with db.session_scope() as s:
-        queryResult= s.query(Usr).filter(Usr.telegram_username.ilike(searchString)).all().to_dict()
+        queryResult = (
+            s.query(Usr)
+            .filter(Usr.telegram_username.ilike(searchString))
+            .all()
+            .to_dict()
+        )
         return queryResult if queryResult else None
-        
+
+
 # Delete user in database
 def delete_user(telegram_id):
-    with db.session_scope() as s: 
+    with db.session_scope() as s:
         query_str = s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}")
         usr_exists = query_str.first() is not None
         if usr_exists:
             query_str.delete()
+
+
 # Update user_role in database
-def update_user_role(telegram_id,role):
+def update_user_role(telegram_id, role):
     with db.session_scope() as s:
         query_str = s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}")
         usr_exists = query_str.first() is not None
         if usr_exists:
-            query_str.update({'role':role})
+            query_str.update({"role": role})
+
 
 # Update username of current user in database
-def update_username(telegram_id,telegram_username):
+def update_username(telegram_id, telegram_username):
     with db.session_scope() as s:
         query_str = s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}")
         usr_exists = query_str.first() is not None
         if usr_exists:
-            query_str.update({'telegram_username':telegram_username})
-        
+            query_str.update({"telegram_username": telegram_username})
+
+
 # Register applicant -> Add applicant to Applicant table, This DOES NOT make the applicant a verified user
 def register_applicant(telegram_id, telegram_username):
     if telegram_username is None:
@@ -48,7 +59,9 @@ def register_applicant(telegram_id, telegram_username):
     else:
         with db.session_scope() as s:
             user_lookup = (
-                s.query(Usr.telegram_id).filter(Usr.telegram_id == f"{telegram_id}").first()
+                s.query(Usr.telegram_id)
+                .filter(Usr.telegram_id == f"{telegram_id}")
+                .first()
             ) is not None
             applicant_lookup = (
                 s.query(Applicant.telegram_id)
@@ -69,15 +82,17 @@ def register_applicant(telegram_id, telegram_username):
                 except Exception as e:
                     return -3
 
+
 # Verify functions
 # Check if current conversation is with a registered user
 def verify_user(telegram_id):
-   with db.session_scope() as s: 
+    with db.session_scope() as s:
         usr_bool = (
             s.query(Usr).filter(Usr.telegram_id == f"{telegram_id}").first() is not None
         )
         db.commit_kill(s)
         return usr_bool
+
 
 # Check if user is an admin
 def verify_admin(telegram_id):
@@ -94,7 +109,8 @@ def verify_admin(telegram_id):
 def verify_applicant(telegram_username):
     with db.session_scope() as s:
         find_user_query = s.query(Applicant).filter(
-            func.lower(Applicant.telegram_username) == func.lower(f"{telegram_username}")
+            func.lower(Applicant.telegram_username)
+            == func.lower(f"{telegram_username}")
         )
         find_user = find_user_query.first()
         if find_user:
@@ -109,6 +125,7 @@ def verify_applicant(telegram_username):
         else:
             return -1
 
+
 # Get user details
 def get_user_role(telegram_id):
     with db.session_scope() as s:
@@ -121,10 +138,11 @@ def get_user_role(telegram_id):
             return None
 
 
-
 def get_user_id(telegram_username):
     with db.session_scope() as s:
-        query_str = s.query(Usr).filter(func.lower(Usr.telegram_username) == func.lower(f"{telegram_username}"))
+        query_str = s.query(Usr).filter(
+            func.lower(Usr.telegram_username) == func.lower(f"{telegram_username}")
+        )
         usr_exists = query_str.first() is not None
         if usr_exists:
             r = query_str.first().telegram_id

@@ -20,33 +20,36 @@ with open("./config.toml", "rb") as f:
 
 
 class Database:
-    def __init__(self,db_url=f"postgresql://{db_user}:{db_secret}@127.0.0.1:5432/{db_name}"):
+    def __init__(
+        self, db_url=f"postgresql://{db_user}:{db_secret}@127.0.0.1:5432/{db_name}"
+    ):
         self.engine = create_engine(db_url)
-    
+
     @contextmanager
     def session_scope(self):
         """Provide a transactional scope around a series of operations"""
         session = self.create_session()
-        try: 
-            yield session 
+        try:
+            yield session
             session.commit()
         except:
             session.rollback()
             raise
         finally:
             session.close()
-    
+
     def create_session(self):
         return Session(bind=self.engine)
-    
-    def load_excel_into_db(self,file_path,table_name):
+
+    def load_excel_into_db(self, file_path, table_name):
         df = pd.read_excel(file_path)
         with self.engine.begin() as conn:
-            df.to_sql(table_name,con=conn,if_exists="append",index=False)
-    def load_df_into_db(self,df,table_name):
+            df.to_sql(table_name, con=conn, if_exists="append", index=False)
+
+    def load_df_into_db(self, df, table_name):
         with self.engine.begin() as conn:
-            df.to_sql(table_name,con=conn, if_exists="append",index=False)
-    
+            df.to_sql(table_name, con=conn, if_exists="append", index=False)
+
     def recreate_database(self):
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)

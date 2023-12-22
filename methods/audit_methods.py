@@ -10,6 +10,8 @@ Methods for audit/logging
 
 
 db = Database()
+
+
 # Audit system related
 def audit_laundry_update_complete(tid, log_description, log_id):
     with db.session_scope() as s:
@@ -34,5 +36,6 @@ def audit_laundry_quantity_update(tid, log_description):
         )
         s.add(new_log)
 
-def audit_dump(date_start,date_end):
+
+def audit_dump(date_start, date_end):
     pass

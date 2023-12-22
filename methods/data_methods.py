@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import desc
 
 from database.db_conn import Database
@@ -10,39 +12,25 @@ Examples: Getting list of items in a given category.
 """
 
 db = Database()
-# Get list of categories in database, used for keyboard
-def get_cat_list():
+
+
+# Retrieve list of all category names in stock
+def get_cat_list() -> List[str]:
     with db.session_scope() as s:
         cat_list = [cat_name for (cat_name,) in s.query(Category.cat_name).all()]
-        cat_list = [cat_list[x : x + 3] for x in range(0, len(cat_list), 3)]
         return cat_list
 
-# Get item list in category, used for keyboard
-def get_item_list(cat_name):
-    with db.session_scope() as s:
-        q = s.query(Category).filter(Category.cat_name == str(cat_name)).first()
-        if q:
-            cat_id = int(q.cat_id)
-            item_list = [
-                item_name
-                for (item_name, cat_id) in s.query(Stock.item_name, Stock.cat_id)
-                .filter(Stock.cat_id == int(cat_id))
-                .all()
-            ]
-            item_list = [item_list[x : x + 3] for x in range(0, len(item_list), 3)]
-        else:
-            item_list = []
-        return item_list
 
 # Retrieve list of all item names in stock
-def get_all_item_list():
+def get_all_item_list() -> List[str]:
     with db.session_scope() as s:
         q = s.query(Stock.item_name).all()
         item_list = [x for (x,) in q]
         return item_list
 
-# Retrieve list of all item names in category
-def get_all_items_cat(cat_name):
+
+# Retrieve list of all items in category
+def get_all_items_cat(cat_name) -> List[Dict[str, Any]]:
     with db.session_scope() as s:
         q = (
             s.query(Stock)
@@ -53,26 +41,29 @@ def get_all_items_cat(cat_name):
         return result
 
 
-def get_item_id(cat_name, item_name):
+# Retrieve item id of a given item in a given category
+def get_item_id(cat_name, item_name) -> Optional[int]:
     with db.session_scope() as s:
         q = (
             s.query(Stock)
             .join(Category, Stock.cat_id == Category.cat_id)
             .filter(
-                (Stock.item_name == f"{item_name}") & (Category.cat_name == f"{cat_name}")
+                (Stock.item_name == f"{item_name}")
+                & (Category.cat_name == f"{cat_name}")
             )
         ).first()
-        item_id = q.item_id
-        return item_id
+        return q.item_id if q and q.item_id else None
 
 
-def get_item_details(item_id):
+# Retrieve a dictionary of item details given an item_id
+def get_item_details(item_id) -> Optional[Dict[str, Any]]:
     with db.session_scope() as s:
-        q = s.query(Stock).filter(Stock.item_id == int(item_id)).first()
-        return q
+        q = s.query(Stock).filter(Stock.item_id == int(item_id)).first().to_dict()
+        return q if q else None
+
 
 # Check if this item belongs to this category
-def verify_item_cat(item_id, cat_id):
+def verify_item_cat(item_id, cat_id) -> bool:
     with db.session_scope() as s:
         q = (
             s.query(Stock)
@@ -83,7 +74,8 @@ def verify_item_cat(item_id, cat_id):
 
 
 # Loan system related
-def set_order(order_id, telegram_id, order_datetime):
+# Verif
+def set_order(order_id, telegram_id, order_datetime) -> None:
     with db.session_scope() as s:
         _order = Ordr(
             order_id=order_id, telegram_id=telegram_id, order_datetime=order_datetime
@@ -91,9 +83,23 @@ def set_order(order_id, telegram_id, order_datetime):
         s.add(_order)
 
 
+def set_pending_loan(item_id, loan_details, order_id, telegram_id):
+    with db.session_scope() as s:
+        _loan = Loan(
+            loan_id=loan_details["loan_id"],
+            telegram_id=telegram_id,
+            loan_status="PENDING",
+            item_id=item_id,
+            item_quantity=loan_details["item_quantity"],
+            approved_by=None,
+            approved_datetime=None,
+            order_id=order_id,
+        )
+        s.add(_loan)
+
 
 # Laundry system related
-def get_laundry_last():
+def get_laundry_last() -> Optional[Dict[str, Any]]:
     with db.session_scope() as s:
         q = (
             s.query(Audit)
@@ -108,7 +114,7 @@ def get_laundry_last():
             return None
 
 
-def update_laundry(update_dict, log_id, tid):
+def update_laundry(update_dict, log_id, tid) -> None:
     l = list(update_dict.items())
     with db.session_scope() as s:
         for item, new_quant in l:
@@ -119,6 +125,3 @@ def update_laundry(update_dict, log_id, tid):
                 tid,
                 f"Laundry quantity update related to log_id: {log_id}, {item}: {cur_quant} -> {new_quant} ",
             )
-
-
-

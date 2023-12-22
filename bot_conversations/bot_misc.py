@@ -5,13 +5,15 @@ from database.db_conn import Database
 from database.db_models import Applicant, Usr
 
 """
-This is just a route created for testing , it registers the current user as an admin.
-This will be removed.
+This is just a route created for testing , it registers the current user as an admin
+This will be removed
 """
 
 
 ACTION_START, LOAN_STATE, REG_STATE, LAUN_STATE = range(4)
 db = Database()
+
+
 # PURELY FOR TESTING, DELETE LATER AFTER TESTING
 async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with db.session_scope() as s:
@@ -33,4 +35,3 @@ async def initadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Registered as Admin.\nType '/start' to get started.",
         )
         return ACTION_START
-
